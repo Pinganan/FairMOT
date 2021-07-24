@@ -89,7 +89,11 @@ class LoadVideo:  # for inference
         self.frame_rate = int(round(self.cap.get(cv2.CAP_PROP_FPS)))
         self.vw = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.vh = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.vn = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        if type(path) == type(0):
+            self.vn = 2 ** 32   # camera use
+        else:
+            self.vn = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         self.width = img_size[0]
         self.height = img_size[1]
