@@ -224,14 +224,8 @@ class JDETracker(object):
                 keep_inds = (results[j][:, 4] >= thresh)
                 results[j] = results[j][keep_inds]
         return results
-
-    def update(self, im_blob, img0):
-        self.frame_id += 1
-        activated_starcks = []
-        refind_stracks = []
-        lost_stracks = []
-        removed_stracks = []
-
+    
+    def get_detection(self, im_blob, img0):
         width = img0.shape[1]
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
@@ -281,6 +275,15 @@ class JDETracker(object):
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
+        print()
+        return detections
+
+    def update(self, detections):
+        self.frame_id += 1
+        activated_starcks = []
+        refind_stracks = []
+        lost_stracks = []
+        removed_stracks = []
 
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
