@@ -27,6 +27,11 @@ def demo(opt):
     frame_rate = dataloader.frame_rate
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
+    ''' multi loaders version
+    eval_seq_multiLoader(opt, [dataloader, dataloader],  'mot', result_filename,
+             save_dir=frame_dir, show_image=True, frame_rate=frame_rate,
+             use_cuda=opt.gpus!=[-1])
+    '''
     eval_seq(opt, dataloader, 'mot', result_filename,
              save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
              use_cuda=opt.gpus!=[-1])
