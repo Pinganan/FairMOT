@@ -284,6 +284,7 @@ class JDETracker(object):
         refind_stracks = []
         lost_stracks = []
         removed_stracks = []
+        unconfirmed_stracks = []
 
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
@@ -355,7 +356,8 @@ class JDETracker(object):
             if track.score < self.det_thresh:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
-            activated_starcks.append(track)
+            #activated_starcks.append(track)
+            unconfirmed_stracks.append(track)
         """ Step 5: Update state"""
         for track in self.lost_stracks:
             if self.frame_id - track.end_frame > self.max_time_lost:
@@ -374,8 +376,10 @@ class JDETracker(object):
         self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
+        self.tracked_stracks = joint_stracks(self.tracked_stracks, unconfirmed_stracks)
 
         logger.debug('===========Frame {}=========='.format(self.frame_id))
+        logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
         logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))
         logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
