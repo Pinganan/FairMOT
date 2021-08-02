@@ -36,6 +36,20 @@ def _indices_to_matches(cost_matrix, indices, thresh):
     return matches, unmatched_a, unmatched_b
 
 
+def inf_filter(cost_matrix, unmatched):
+    if cost_matrix.size == 0:
+        return unmatched, np.array([])
+    inf_detection = []
+    trans_cost_matrix = cost_matrix.T
+    for index, row in enumerate(trans_cost_matrix):
+        print(index)
+        if row[0] == np.inf and np.all(row == row[0]):
+            inf_detection.append(index)
+    inf_detection = np.asarray(inf_detection)
+    unmatched = np.setdiff1d(unmatched, inf_detection)
+    return unmatched, inf_detection
+
+
 def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
