@@ -8,6 +8,7 @@ import time
 import torch
 import cv2
 import torch.nn.functional as F
+import time
 
 from models.model import create_model, load_model
 from models.decode import mot_decode
@@ -224,7 +225,7 @@ class JDETracker(object):
                 keep_inds = (results[j][:, 4] >= thresh)
                 results[j] = results[j][keep_inds]
         return results
-    
+
     def get_detection(self, im_blob, img0):
         width = img0.shape[1]
         height = img0.shape[0]
@@ -257,25 +258,12 @@ class JDETracker(object):
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
 
-        # vis
-        '''
-        for i in range(0, dets.shape[0]):
-            bbox = dets[i][0:4]
-            cv2.rectangle(img0, (bbox[0], bbox[1]),
-                          (bbox[2], bbox[3]),
-                          (0, 255, 0), 2)
-        cv2.imshow('dets', img0)
-        cv2.waitKey(0)
-        id0 = id0-1
-        '''
-
         if len(dets) > 0:
             '''Detections'''
             detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
-        print()
         return detections
 
     def update(self, detections):
@@ -285,7 +273,6 @@ class JDETracker(object):
         lost_stracks = []
         removed_stracks = []
         unconfirmed_stracks = []
-
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
         tracked_stracks = []  # type: list[STrack]
@@ -295,17 +282,16 @@ class JDETracker(object):
             else:
                 tracked_stracks.append(track)
 
-        ''' Step 2: First association, with embedding'''
+        ''' Step 2: First association, with embedding    An, catch by sporting object'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
-        # Predict the current location with KF
-        #for strack in strack_pool:
-            #strack.predict()
-        STrack.multi_predict(strack_pool)
+        stack_len = len(strack_pool)
+
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
+        STrack.multi_predict(strack_pool)
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
-
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
         for itracked, idet in matches:
             track = strack_pool[itracked]
             det = detections[idet]
@@ -316,15 +302,21 @@ class JDETracker(object):
                 track.re_activate(det, self.frame_id, new_id=False)
                 refind_stracks.append(track)
 
-        ''' Step 3: Second association, with IOU'''
-        detections = [detections[i] for i in u_detection]
-        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
-        dists = matching.iou_distance(r_tracked_stracks, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        '''
+            if detection was valuable with tracker, it possibly matches trackers that means detection belongs to STrack
+            instead, it doesn't matches anyone that means detections are classified as Unconfirmed Tracker
+        '''
+        inf_detections = [detections[i] for i in inf_detection]      # => inf detect, it doesn't match any tracker
+        val_detections = [detections[i] for i in u_detection]           # => valuable detect, maybe match tracker
 
+        ''' Step 3: Second association, with IOU    An, mark sheltered object lost'''
+        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        dists = matching.iou_distance(r_tracked_stracks, val_detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        '''without shield'''
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
-            det = detections[idet]
+            det = val_detections[idet]
             if track.state == TrackState.Tracked:
                 track.update(det, self.frame_id)
                 activated_starcks.append(track)
@@ -339,24 +331,26 @@ class JDETracker(object):
                 lost_stracks.append(track)
 
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
-        detections = [detections[i] for i in u_detection]
-        dists = matching.iou_distance(unconfirmed, detections)
+        #detections = [detections[i] for i in u_detection]
+        dists = matching.iou_distance(unconfirmed, inf_detections)
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         for itracked, idet in matches:
-            unconfirmed[itracked].update(detections[idet], self.frame_id)
+            unconfirmed[itracked].update(inf_detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
         for it in u_unconfirmed:
             track = unconfirmed[it]
             track.mark_removed()
             removed_stracks.append(track)
-
+        allow_number = 0
+        score_list = {}
         """ Step 4: Init new stracks"""
         for inew in u_detection:
-            track = detections[inew]
+            track = inf_detections[inew]
             if track.score < self.det_thresh:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
-            #activated_starcks.append(track)
+            allow_number = allow_number + 1
+            score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
         """ Step 5: Update state"""
         for track in self.lost_stracks:
@@ -385,6 +379,9 @@ class JDETracker(object):
         logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
 
+        if stack_len > 3:
+            #exit()
+            pass
         return output_stracks
 
 
