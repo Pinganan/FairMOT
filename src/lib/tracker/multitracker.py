@@ -264,6 +264,7 @@ class JDETracker(object):
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
+        print()
         return detections
 
     def update(self, detections):
@@ -273,6 +274,7 @@ class JDETracker(object):
         lost_stracks = []
         removed_stracks = []
         unconfirmed_stracks = []
+        print("0 detection amount " + str(len(detections)))
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
         tracked_stracks = []  # type: list[STrack]
@@ -285,13 +287,20 @@ class JDETracker(object):
         ''' Step 2: First association, with embedding    An, catch by sporting object'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         stack_len = len(strack_pool)
+        print("  allstrack amount " + str(stack_len))
+        print()
 
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
         STrack.multi_predict(strack_pool)
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
+        print("1st matrixs amount " + str(len(dists)))
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
+        print("    matches amount " + str(len(matches)))
+        print("    detects amount " + str(len(u_detection)))
+        print("    inf_det amount " + str(len(inf_detection)))
+        print()
         for itracked, idet in matches:
             track = strack_pool[itracked]
             det = detections[idet]
@@ -312,7 +321,11 @@ class JDETracker(object):
         ''' Step 3: Second association, with IOU    An, mark sheltered object lost'''
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, val_detections)
+        print("2nd matrixs amount " + str(len(dists)))
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        print("    matches amount " + str(len(matches)))
+        print("    detects amount " + str(len(u_detection)))
+        print()
         '''without shield'''
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
@@ -333,7 +346,11 @@ class JDETracker(object):
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
         #detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
+        print("3rd matrixs amount " + str(len(dists)))
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
+        print("    matches amount " + str(len(matches)))
+        print("    detects amount " + str(len(u_detection)))
+        print()
         for itracked, idet in matches:
             unconfirmed[itracked].update(inf_detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
@@ -352,6 +369,9 @@ class JDETracker(object):
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
+        print("4th isVaild amount " + str(allow_number))
+        print(score_list)
+        print()
         """ Step 5: Update state"""
         for track in self.lost_stracks:
             if self.frame_id - track.end_frame > self.max_time_lost:
