@@ -274,7 +274,7 @@ class JDETracker(object):
         lost_stracks = []
         removed_stracks = []
         unconfirmed_stracks = []
-        print("0 detection amount " + str(len(detections)))
+
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
         tracked_stracks = []  # type: list[STrack]
@@ -283,24 +283,27 @@ class JDETracker(object):
                 unconfirmed.append(track)
             else:
                 tracked_stracks.append(track)
-
-        ''' Step 2: First association, with embedding    An, catch by sporting object'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         stack_len = len(strack_pool)
+        print("0 detection amount " + str(len(detections)))
         print("  allstrack amount " + str(stack_len))
         print()
 
+
+        ''' Step 2: First association, with embedding    An, catch by sporting object'''
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
         STrack.multi_predict(strack_pool)
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        print("1st matrixs amount " + str(len(dists)))
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
+        just_terminal_display(dists)
+        print("1st matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print("    inf_det amount " + str(len(inf_detection)))
         print()
+        
         for itracked, idet in matches:
             track = strack_pool[itracked]
             det = detections[idet]
@@ -310,7 +313,6 @@ class JDETracker(object):
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
                 refind_stracks.append(track)
-
         '''
             if detection was valuable with tracker, it possibly matches trackers that means detection belongs to STrack
             instead, it doesn't matches anyone that means detections are classified as Unconfirmed Tracker
@@ -318,11 +320,14 @@ class JDETracker(object):
         inf_detections = [detections[i] for i in inf_detection]      # => inf detect, it doesn't match any tracker
         val_detections = [detections[i] for i in u_detection]           # => valuable detect, maybe match tracker
 
+
         ''' Step 3: Second association, with IOU    An, mark sheltered object lost'''
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, val_detections)
+        #matches, u_track, u_detection = matching.find_min_assignment(dists)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        just_terminal_display(dists)
         print("2nd matrixs amount " + str(len(dists)))
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print()
@@ -336,18 +341,20 @@ class JDETracker(object):
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
                 refind_stracks.append(track)
-                
         for it in u_track:
             track = r_tracked_stracks[it]
             if not track.state == TrackState.Lost:
                 track.mark_lost()
                 lost_stracks.append(track)
 
+
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
         #detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
+        matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
+        #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
+        just_terminal_display(dists)
         print("3rd matrixs amount " + str(len(dists)))
-        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print()
@@ -358,12 +365,14 @@ class JDETracker(object):
             track = unconfirmed[it]
             track.mark_removed()
             removed_stracks.append(track)
+
+
+        """ Step 4: Init new stracks"""
         allow_number = 0
         score_list = {}
-        """ Step 4: Init new stracks"""
         for inew in u_detection:
             track = inf_detections[inew]
-            if track.score < self.det_thresh:
+            if track.score < self.det_thresh or stack_len == 3:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
             allow_number = allow_number + 1
@@ -372,6 +381,8 @@ class JDETracker(object):
         print("4th isVaild amount " + str(allow_number))
         print(score_list)
         print()
+
+
         """ Step 5: Update state"""
         for track in self.lost_stracks:
             if self.frame_id - track.end_frame > self.max_time_lost:
@@ -392,16 +403,12 @@ class JDETracker(object):
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
         self.tracked_stracks = joint_stracks(self.tracked_stracks, unconfirmed_stracks)
 
-        logger.debug('===========Frame {}=========='.format(self.frame_id))
+        logger.debug('========Frame {}======='.format(self.frame_id))
         logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
         logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))
         logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
-
-        if stack_len > 3:
-            #exit()
-            pass
         return output_stracks
 
 
@@ -444,3 +451,7 @@ def remove_duplicate_stracks(stracksa, stracksb):
     resa = [t for i, t in enumerate(stracksa) if not i in dupa]
     resb = [t for i, t in enumerate(stracksb) if not i in dupb]
     return resa, resb
+
+def just_terminal_display(matrix):
+    for i in matrix:
+        print(i)
