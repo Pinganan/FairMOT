@@ -293,11 +293,11 @@ class JDETracker(object):
         ''' step2 embedding for appearance, fuse_motion for location in future'''
         STrack.multi_predict(strack_pool)
         dists = matching.embedding_distance(strack_pool, detections)
-        just_terminal_display(dists, "embedding_distance")
+        just_terminal_display(dists, strack_pool, "embedding_distance")
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
-        just_terminal_display(dists, "fuse_motion")
+        just_terminal_display(dists, strack_pool, "fuse_motion")
         print("1st matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
@@ -326,7 +326,7 @@ class JDETracker(object):
         dists = matching.iou_distance(strack_pool, val_detections)
         #matches, u_track, u_detection = matching.find_min_assignment(dists)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.6)
-        just_terminal_display(dists, "iou_distance")
+        just_terminal_display(dists, strack_pool, "iou_distance")
         print("2nd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
@@ -352,7 +352,7 @@ class JDETracker(object):
         dists = matching.iou_distance(unconfirmed, inf_detections)
         matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
         #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
-        just_terminal_display(dists, "iou_distance")
+        just_terminal_display(dists, unconfirmed, "iou_distance")
         print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
@@ -451,10 +451,10 @@ def remove_duplicate_stracks(stracksa, stracksb):
     resb = [t for i, t in enumerate(stracksb) if not i in dupb]
     return resa, resb
 
-def just_terminal_display(matrix, matrix_mark = "IOU"):
+def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
     if matrix.size == 0:
         return 
     print(matrix_mark + " matrix :")
-    for i in matrix:
-        print(i)
+    for i, m in zip(stracks, matrix):
+        print(i.track_id, m)
     print()
