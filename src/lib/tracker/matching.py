@@ -50,23 +50,27 @@ def inf_filter(cost_matrix, unmatched):
     return unmatched, inf_detection
 
 
-def find_min_assignment(cost_matrix, thresh):
+def find_min_assignment(cost_matrix):
 
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
-    else:
-        matches, unmatched_a, unmatched_b = [], [], []
-        row_col = np.where(cost_matrix == np.amin(cost_matrix))
-        
-        for x, y in zip(row_col[0], row_col[1]):
-            matches.append([x, y])
-        for x in range(len(cost_matrix)):
-            if x not in row_col[0]:
-                unmatched_a.append(x)
-        for y in range(len(cost_matrix[0])):
-            if y not in row_col[1]:
-                unmatched_b.append(y)
-        return np.asarray(matches), np.asarray(unmatched_a), np.asarray(unmatched_b)
+
+    matches, unmatched_a, unmatched_b = [], [], []
+    row_col = np.where(cost_matrix == np.amin(cost_matrix))
+
+    repeatx, repeaty = -1, -1
+    for x, y in zip(row_col[0], row_col[1]):
+        if repeatx == x or repeaty == y:
+            continue
+        repeatx, repeaty = x, y
+        matches.append([x, y])
+    for x in range(len(cost_matrix)):
+        if x not in row_col[0]:
+            unmatched_a.append(x)
+    for y in range(len(cost_matrix[0])):
+        if y not in row_col[1]:
+            unmatched_b.append(y)
+    return np.asarray(matches), np.asarray(unmatched_a), np.asarray(unmatched_b)
 
 
 def linear_assignment(cost_matrix, thresh):
