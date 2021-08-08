@@ -283,22 +283,26 @@ class JDETracker(object):
                 tracked_stracks.append(track)
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         stack_len = len(strack_pool)
-        print("0 detection amount " + str(len(detections)))
+        print("1 detection amount " + str(len(detections)))
         print("  allstrack amount " + str(stack_len))
         print("  unchecked amount " + str(len(unconfirmed)))
         print("  lostState amount " + str(len(self.lost_stracks)))
         print()
 
 
-        ''' step2 embedding for appearance, fuse_motion for location in future'''
+        ''' step2-1 embedding for appearance, '''
         STrack.multi_predict(strack_pool)
         dists = matching.embedding_distance(strack_pool, detections)
         just_terminal_display(dists, strack_pool, "embedding_distance")
+
+
+        ''' step2-2 fuse_motion for location in future '''
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.6)
+        #matches, u_track, u_detection = matching.find_min_assignment(dists, thresh=0.3)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
         just_terminal_display(dists, strack_pool, "fuse_motion")
-        print("1st matrixs amount " + str(len(dists)))
+        print("2-2 matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print("    inf_det amount " + str(len(inf_detection)))
@@ -325,9 +329,9 @@ class JDETracker(object):
         strack_pool = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(strack_pool, val_detections)
         #matches, u_track, u_detection = matching.find_min_assignment(dists)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.6)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.8)
         just_terminal_display(dists, strack_pool, "iou_distance")
-        print("2nd matrixs amount " + str(len(dists)))
+        print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print()
@@ -353,7 +357,7 @@ class JDETracker(object):
         matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
         #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         just_terminal_display(dists, unconfirmed, "iou_distance")
-        print("3rd matrixs amount " + str(len(dists)))
+        print("4th matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
         print()
@@ -377,7 +381,7 @@ class JDETracker(object):
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
-        print("4th isVaild amount " + str(allow_number))
+        print("5th isVaild amount " + str(allow_number))
         print(score_list)
         print()
 
@@ -406,6 +410,7 @@ class JDETracker(object):
         logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
         logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))
+        logger.debug('AllLost: {}'.format([track.track_id for track in self.lost_stracks]))
         logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
         return output_stracks
