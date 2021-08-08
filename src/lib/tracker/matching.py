@@ -8,6 +8,8 @@ from cython_bbox import bbox_overlaps as bbox_ious
 from tracking_utils import kalman_filter
 import time
 
+from .basetrack import TrackState
+
 def merge_matches(m1, m2, shape):
     O,P,Q = shape
     m1 = np.asarray(m1)
@@ -36,13 +38,31 @@ def _indices_to_matches(cost_matrix, indices, thresh):
     return matches, unmatched_a, unmatched_b
 
 
+def appearance_assignment(cost_matrix, length):
+
+    if cost_matrix.size == 0 or not len(cost_matrix) > length:
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+    print("--"*50)
+    lost_matrix = []
+    for index, row in enumerate(cost_matrix):
+        if index < length:
+            continue
+        lost_matrix.append(row)
+    matched, utrack, udetection = linear_assignment(np.asmatrix(lost_matrix), 0.5)
+    for row in matched:
+        row[0] += length
+    for row in utrack:
+        row += length
+
+    return np.asarray(matched), np.asarray(utrack), np.asarray(udetection)
+
+
 def inf_filter(cost_matrix, unmatched):
     if cost_matrix.size == 0:
-        return unmatched, np.array([])
+        return np.array([]), unmatched
     inf_detection = []
     trans_cost_matrix = cost_matrix.T
     for index, row in enumerate(trans_cost_matrix):
-        print(index)
         if row[0] == np.inf and np.all(row == row[0]):
             inf_detection.append(index)
     inf_detection = np.asarray(inf_detection)
@@ -50,17 +70,16 @@ def inf_filter(cost_matrix, unmatched):
     return unmatched, inf_detection
 
 
-def find_min_assignment(cost_matrix):
+def find_min_assignment(cost_matrix, thresh=1):
 
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
 
     matches, unmatched_a, unmatched_b = [], [], []
     row_col = np.where(cost_matrix == np.amin(cost_matrix))
-
     repeatx, repeaty = -1, -1
     for x, y in zip(row_col[0], row_col[1]):
-        if repeatx == x or repeaty == y:
+        if repeatx == x or repeaty == y or cost_matrix[x][y] > thresh:
             continue
         repeatx, repeaty = x, y
         matches.append([x, y])
@@ -156,6 +175,21 @@ def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position)
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
+    return cost_matrix
+
+
+def fuse_motion_lostStateExcept(kf, cost_matrix, tracks, detections, only_position=False, lambda_=0.98):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    gating_dim = 2 if only_position else 6
+    gating_threshold = kalman_filter.chi2inv95[gating_dim]
+    measurements = np.asarray([det.to_xyah() for det in detections])
+    for row, track in enumerate(tracks):
+        gating_distance = kf.gating_distance(
+            track.mean, track.covariance, measurements, only_position, metric='maha')
+        if track.state == TrackState.Tracked:
+            cost_matrix[row, gating_distance > gating_threshold] = np.inf
+        cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
 
 
