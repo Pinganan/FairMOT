@@ -9,6 +9,7 @@ from tracking_utils import kalman_filter
 import time
 
 from .basetrack import TrackState
+from tracker import multitracker
 
 def merge_matches(m1, m2, shape):
     O,P,Q = shape
@@ -90,6 +91,22 @@ def find_min_assignment(cost_matrix, thresh=1):
         if y not in row_col[1]:
             unmatched_b.append(y)
     return np.asarray(matches), np.asarray(unmatched_a), np.asarray(unmatched_b)
+
+
+def lost_linear_assignment(cost_matrix, matches, u_track, u_detection, length, thresh=2):
+    if cost_matrix.size == 0:
+        return cost_matrix, np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+    for ri in range(cost_matrix.shape[0]):
+        cost_matrix[ri<length, ri] = np.inf     # what's the shit
+    for x, y in matches:
+        cost_matrix[x, :] = np.inf
+        cost_matrix[:, y] = np.inf
+    m, ut, ud = linear_assignment(cost_matrix, thresh=thresh)
+    for row in m:
+        matches = np.vstack([matches, row])
+    u_track = np.intersect1d(u_track, ut)
+    u_detection = np.intersect1d(u_detection, ud)
+    return cost_matrix, matches, u_track, u_detection
 
 
 def linear_assignment(cost_matrix, thresh):
