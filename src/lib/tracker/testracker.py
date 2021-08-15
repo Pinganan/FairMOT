@@ -258,7 +258,7 @@ class JDETracker(object):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 1000) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
@@ -290,7 +290,7 @@ class JDETracker(object):
 
 
         ''' step2-1 embedding for appearance '''
-        STrack.multi_predict(strack_pool)
+        STrack.multi_predict(joint_stracks(strack_pool, self.lost_stracks))
         dists_embedding = matching.embedding_distance(strack_pool, detections)
         #just_terminal_display(dists, strack_pool, "embedding_distance")
 
@@ -303,7 +303,7 @@ class JDETracker(object):
         #just_terminal_display(dists, strack_pool, "iou distance")
 
         dists = (dists_fuse*0.9 + dists_iou*0.1)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.8)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)
         just_terminal_display(dists, strack_pool, "mix")
         print("2nd matrixs amount " + str(len(dists)))
@@ -325,11 +325,11 @@ class JDETracker(object):
                 lost_stracks.append(track)
 
 
-        ''' step3 lost embedding for appearance, fuse_motion for location in future '''
+        ''' step3 lost embedding for appearance'''
         strack_pool = self.lost_stracks
         inf_detections = [detections[i] for i in inf_detection]
         dists = matching.embedding_distance(strack_pool, inf_detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.6)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.2)
         just_terminal_display(dists, strack_pool, "lost state embedding")
         print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
@@ -367,16 +367,19 @@ class JDETracker(object):
         ''' step5 detection -> tracker(u) '''
         allow_number = 0
         score_list = {}
+        fail = {}
         for inew in u_detection:
             track = inf_detections[inew]
-            if track.score < self.det_thresh or strack_len == 3:
+            if track.score < self.det_thresh:
+                fail[track.track_id] = track.score
                 continue
             track.activate(self.kalman_filter, self.frame_id)
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
         print("5th isVaild amount " + str(allow_number))
-        print(score_list)
+        print("success Utracker : " + str(score_list)) 
+        print("fail    Utracker : " + str(fail))
         print()
 
 
@@ -399,6 +402,7 @@ class JDETracker(object):
         self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
+        output_stracks2 = [track for track in self.tracked_stracks]
 
         logger.debug('========Frame {}======='.format(self.frame_id))
         logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
