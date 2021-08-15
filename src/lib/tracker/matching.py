@@ -76,7 +76,7 @@ def find_min_assignment(cost_matrix, thresh=1):
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
 
-    matches, unmatched_a, unmatched_b = [], [], []
+    matches, unmatched_a, unmatched_b, temp = [], [], [], []
     row_col = np.where(cost_matrix == np.amin(cost_matrix))
     repeatx, repeaty = -1, -1
     for x, y in zip(row_col[0], row_col[1]):
@@ -84,13 +84,16 @@ def find_min_assignment(cost_matrix, thresh=1):
             continue
         repeatx, repeaty = x, y
         matches.append([x, y])
+    matches = np.asarray(matches)
+    if matches.size == 0:
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
     for x in range(len(cost_matrix)):
-        if x not in row_col[0]:
+        if x not in matches.T[0]:
             unmatched_a.append(x)
     for y in range(len(cost_matrix[0])):
-        if y not in row_col[1]:
+        if y not in matches.T[1]:
             unmatched_b.append(y)
-    return np.asarray(matches), np.asarray(unmatched_a), np.asarray(unmatched_b)
+    return matches, np.asarray(unmatched_a), np.asarray(unmatched_b)
 
 
 def lost_linear_assignment(cost_matrix, matches, u_track, u_detection, length, thresh=2):
@@ -163,6 +166,7 @@ def iou_distance(atracks, btracks):
 
     return cost_matrix
 
+
 def embedding_distance(tracks, detections, metric='cosine'):
     """
     :param tracks: list[STrack]
@@ -198,14 +202,26 @@ def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
 def fuse_motion_lostStateExcept(kf, cost_matrix, tracks, detections, only_position=False, lambda_=0.98):
     if cost_matrix.size == 0:
         return cost_matrix
-    gating_dim = 2 if only_position else 6
+    gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
     measurements = np.asarray([det.to_xyah() for det in detections])
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
-        if track.state == TrackState.Tracked:
-            cost_matrix[row, gating_distance > gating_threshold] = np.inf
+        cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
+    return cost_matrix
+
+
+def fuse_motion_NoInf(kf, cost_matrix, tracks, detections, only_position=False, lambda_=0.98):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    gating_dim = 2 if only_position else 4
+    gating_threshold = kalman_filter.chi2inv95[gating_dim]
+    measurements = np.asarray([det.to_xyah() for det in detections])
+    for row, track in enumerate(tracks):
+        gating_distance = kf.gating_distance(
+            track.mean, track.covariance, measurements, only_position, metric='maha')
+        cost_matrix[row, gating_distance > gating_threshold] = 1
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
 
