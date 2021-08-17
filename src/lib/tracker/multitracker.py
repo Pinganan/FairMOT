@@ -235,7 +235,7 @@ class JDETracker(object):
                 'out_height': inp_height // self.opt.down_ratio,
                 'out_width': inp_width // self.opt.down_ratio}
 
-        ''' Step 1: Network forward, get detections & embeddings'''
+        ''' Network forward, get detections'''
         with torch.no_grad():
             output = self.model(im_blob)[-1]
             hm = output['hm'].sigmoid_()
@@ -298,8 +298,8 @@ class JDETracker(object):
         ''' step2-2 fuse_motion for location in future '''
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
         #dists = matching.fuse_motion_lostStateExcept(self.kalman_filter, dists, strack_pool, detections)
-        #matches, u_track, u_detection = matching.find_min_assignment(dists, thresh=0.4)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
+        #matches, u_track, u_detection = matching.find_min_assignment(dists, thresh=0.3)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
         just_terminal_display(dists, strack_pool, "fuse_motion")
         print("2nd matrixs amount " + str(len(dists)))
@@ -327,9 +327,14 @@ class JDETracker(object):
 
         ''' step3 iou '''
         strack_pool = [strack_pool[i] for i in u_track]
-        dists = matching.iou_distance(strack_pool, val_detections)
+        dists_1 = matching.embedding_distance(strack_pool, val_detections)
+        dists_1 = matching.fuse_motion(self.kalman_filter, dists_1, strack_pool, val_detections)
+        just_terminal_display(dists_1, strack_pool, "iou_distance_embedding")
+        dists_2 = matching.iou_distance(strack_pool, val_detections)
+        just_terminal_display(dists_2, strack_pool, "iou_distance_IOU")
+        dists = (dists_1*0.5 + dists_2*0.5)
         #matches, u_track, u_detection = matching.find_min_assignment(dists)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
         just_terminal_display(dists, strack_pool, "iou_distance")
         print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
@@ -378,7 +383,7 @@ class JDETracker(object):
         ''' step5 tracker(u) -> stracker(s) '''
         inf_detections = [inf_detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
-        matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
+        matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists, thresh=0.4)
         #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         just_terminal_display(dists, unconfirmed, "iou_distance")
         print("5th matrixs amount " + str(len(dists)))
@@ -487,3 +492,4 @@ def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
     for i, m in zip(stracks, matrix):
         print(i.track_id, m)
     print()
+

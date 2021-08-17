@@ -11,6 +11,7 @@ import json
 import numpy as np
 import torch
 import copy
+from moviepy.editor import *
 
 from torch.utils.data import Dataset
 from torchvision.transforms import transforms as T
@@ -82,16 +83,31 @@ class LoadImages:  # for inference
     def __len__(self):
         return self.nF  # number of files
 
+class MergeVideo:
+    def __init__(self, path=0, path2=0, img_size=(1088, 608)):
+        cap = cv2.VideoCapture(path)
+        global frame_breakPoint
+        frame_breakPoint = 0
+        if type(path) == type(0):
+            frame_breakPoint = 2 ** 32
+        else:
+            frame_breakPoint = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        files_list = []
+        files_list.append(VideoFileClip(path))
+        files_list.append(VideoFileClip(path))
+        files = concatenate_videoclips(files_list)
+        files.write_videofile(path)
 
 class LoadVideo:  # for inference
-    def __init__(self, path, img_size=(1088, 608)):
+    def __init__(self, path=0, img_size=(1088, 608)):
         self.cap = cv2.VideoCapture(path)
         self.frame_rate = int(round(self.cap.get(cv2.CAP_PROP_FPS)))
         self.vw = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.vh = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         if type(path) == type(0):
-            self.vn = 2 ** 32   # camera use
+            self.vn = 2 ** 32
         else:
             self.vn = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -115,6 +131,8 @@ class LoadVideo:  # for inference
         self.count += 1
         if self.count == len(self):
             raise StopIteration
+        if not self.cap.isOpened():
+            print("------------------------------------------------------------------------------------------------")
         # Read image
         res, img0 = self.cap.read()  # BGR
         assert img0 is not None, 'Failed to load frame {:d}'.format(self.count)
@@ -326,10 +344,6 @@ def random_affine(img, targets=None, degrees=(-10, 10), translate=(.1, .1), scal
 
             targets = targets[i]
             targets[:, 2:6] = xy[i]
-            targets = targets[targets[:, 2] < width]
-            targets = targets[targets[:, 4] > 0]
-            targets = targets[targets[:, 3] < height]
-            targets = targets[targets[:, 5] > 0]
 
         return imw, targets, M
     else:
@@ -495,7 +509,6 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
 class DetDataset(LoadImagesAndLabels):  # for training
     def __init__(self, root, paths, img_size=(1088, 608), augment=False, transforms=None):
-
         dataset_names = paths.keys()
         self.img_files = OrderedDict()
         self.label_files = OrderedDict()

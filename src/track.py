@@ -11,6 +11,7 @@ import argparse
 import motmetrics as mm
 import numpy as np
 import torch
+import time
 
 from tracker.multitracker import JDETracker
 from tracking_utils import visualization as vis
@@ -21,7 +22,6 @@ import datasets.dataset.jde as datasets
 
 from tracking_utils.utils import mkdir_if_missing
 from opts import opts
-
 
 def write_results(filename, results, data_type):
     if data_type == 'mot':
@@ -66,7 +66,7 @@ def write_results_score(filename, results, data_type):
                 f.write(line)
     logger.info('save results to {}'.format(filename))
 
-    
+
 def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
@@ -74,26 +74,28 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
     timer = Timer()
     results = []
     frame_id = 0
-    detections = []
-
     for frame_counter in range(len(dataloader[0])):
 
-        #if frame_counter % 3 == 0:
-            #continue
+        if frame_counter % 8 != 0:
+            for dataloader_index in range(len(dataloader)):
+                dataloader[dataloader_index].__next__()
+            continue
+
         if frame_id % 20 == 0:
             logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 
         timer.tic()
+        detections = []
         for dataloader_index in range(len(dataloader)):
-            (path, img, img0) = dataloader[dataloader_index].__next__()
-            # run tracking
+            for dataloader_index in range(len(dataloader)):
+                (path, img, img0) = dataloader[dataloader_index].__next__()
             if use_cuda:
                 blob = torch.from_numpy(img).cuda().unsqueeze(0)
             else:
                 blob = torch.from_numpy(img).unsqueeze(0)
             detections = detections + tracker.get_detection(blob, img0)
+        # run tracking
         online_targets = tracker.update(detections)
-        timer.toc()
         online_tlwhs = []
         online_ids = []
         #online_scores = []
@@ -119,12 +121,11 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         if save_dir is not None:
             cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
-        frame_counter += 1
     # save results
     write_results(result_filename, results, data_type)
     #write_results_score(result_filename, results, data_type)
     return frame_id, timer.average_time, timer.calls
-
+            
 
 def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
@@ -133,12 +134,16 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     timer = Timer()
     results = []
     frame_id = 0
-    #for path, img, img0 in dataloader:
+
     for i, (path, img, img0) in enumerate(dataloader):
-        #if i % 8 != 0:
-            #continue
+        if i < 20:
+            #movie specification
+            continue
+
+        if i % 8 != 0:
+            continue
         if frame_id % 20 == 0:
-            logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
+            logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 
         # run tracking
         timer.tic()
@@ -146,7 +151,6 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             blob = torch.from_numpy(img).cuda().unsqueeze(0)
         else:
             blob = torch.from_numpy(img).unsqueeze(0)
-        #online_targets = tracker.update(blob, img0)
         online_targets = tracker.update(tracker.get_detection(blob, img0))
         online_tlwhs = []
         online_ids = []
@@ -166,8 +170,11 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         if show_image or save_dir is not None:
             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
                                           fps=1. / timer.average_time)
+            #print(online_tlwhs, online_ids, frame_id)
         if show_image:
             cv2.imshow('online_im', online_im)
+            if cv2.waitKey(1) == ord('q'):
+                break
         if save_dir is not None:
             cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
@@ -178,7 +185,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
 
 
 def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), exp_name='demo',
-         save_images=False, save_videos=False, show_image=True):
+         save_images=True, save_videos=False, show_image=True):
     logger.setLevel(logging.INFO)
     result_root = os.path.join(data_root, '..', 'results', exp_name)
     mkdir_if_missing(result_root)

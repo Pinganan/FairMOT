@@ -40,6 +40,11 @@ def write_results(filename, results, data_type):
                     continue
                 x1, y1, w, h = tlwh
                 x2, y2 = x1 + w, y1 + h
+                #size = w * h
+                #if size > 7000:
+                #if size <= 7000 or size >= 15000:
+                #if size < 15000:
+                    #continue
                 line = save_format.format(frame=frame_id, id=track_id, x1=x1, y1=y1, x2=x2, y2=y2, w=w, h=h)
                 f.write(line)
     logger.info('save results to {}'.format(filename))
@@ -145,7 +150,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
 
 
 if __name__ == '__main__':
-    torch.cuda.set_device(2)
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     opt = opts().init()
 
     if not opt.val_mot16:
@@ -197,6 +202,12 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
+        #seqs_str = '''MOT17-01-SDP
+                      #MOT17-06-SDP
+                      #MOT17-07-SDP
+                      #MOT17-12-SDP
+                      #'''
+        #seqs_str = '''MOT17-07-SDP MOT17-08-SDP'''
         data_root = os.path.join(opt.data_dir, 'MOT17/images/test')
     if opt.val_mot17:
         seqs_str = '''MOT17-02-SDP
@@ -206,6 +217,7 @@ if __name__ == '__main__':
                       MOT17-10-SDP
                       MOT17-11-SDP
                       MOT17-13-SDP'''
+        #seqs_str = '''MOT17-02-SDP'''
         data_root = os.path.join(opt.data_dir, 'MOT17/images/train')
     if opt.val_mot15:
         seqs_str = '''Venice-2
@@ -220,6 +232,7 @@ if __name__ == '__main__':
                       ADL-Rundle-8
                       ETH-Pedcross2
                       TUD-Stadtmitte'''
+        #seqs_str = '''Venice-2'''
         data_root = os.path.join(opt.data_dir, 'MOT15/images/train')
     if opt.val_mot20:
         seqs_str = '''MOT20-01
@@ -240,7 +253,7 @@ if __name__ == '__main__':
     main(opt,
          data_root=data_root,
          seqs=seqs,
-         exp_name='mot17_half_yolov5s',
+         exp_name='MOT17_val_jde_half_dla34_det',
          show_image=False,
          save_images=False,
          save_videos=False)

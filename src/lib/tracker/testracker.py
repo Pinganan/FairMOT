@@ -262,6 +262,7 @@ class JDETracker(object):
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
+        detections = [detection for detection in detections if detection.score > self.det_thresh]
         print()
         return detections
 
@@ -290,11 +291,12 @@ class JDETracker(object):
 
 
         ''' step2-1 embedding for appearance '''
-        STrack.multi_predict(joint_stracks(strack_pool, self.lost_stracks))
+        STrack.multi_predict(strack_pool)
         dists_embedding = matching.embedding_distance(strack_pool, detections)
         #just_terminal_display(dists, strack_pool, "embedding_distance")
 
         ''' step2-2 fuse_motion for location in future '''
+        #dists_fuse = matching.fuse_motion_NoInf(self.kalman_filter, dists_embedding, strack_pool, detections)
         dists_fuse = matching.fuse_motion(self.kalman_filter, dists_embedding, strack_pool, detections)
         #just_terminal_display(dists, strack_pool, "fuse motion")
 
@@ -302,8 +304,8 @@ class JDETracker(object):
         dists_iou = matching.iou_distance(strack_pool, detections)
         #just_terminal_display(dists, strack_pool, "iou distance")
 
-        dists = (dists_fuse*0.9 + dists_iou*0.1)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        dists = (dists_fuse*0.1 + dists_iou*0.9)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=1)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)
         just_terminal_display(dists, strack_pool, "mix")
         print("2nd matrixs amount " + str(len(dists)))
@@ -329,7 +331,7 @@ class JDETracker(object):
         strack_pool = self.lost_stracks
         inf_detections = [detections[i] for i in inf_detection]
         dists = matching.embedding_distance(strack_pool, inf_detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.2)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.1)
         just_terminal_display(dists, strack_pool, "lost state embedding")
         print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
@@ -347,7 +349,7 @@ class JDETracker(object):
         ''' step4 tracker(u) -> stracker(s) '''
         inf_detections = [inf_detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
-        matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists, thresh=0.3)
+        matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists, thresh=0.35)
         #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         just_terminal_display(dists, unconfirmed, "iou_distance")
         print("4th matrixs amount " + str(len(dists)))
@@ -367,25 +369,22 @@ class JDETracker(object):
         ''' step5 detection -> tracker(u) '''
         allow_number = 0
         score_list = {}
-        fail = {}
         for inew in u_detection:
             track = inf_detections[inew]
             if track.score < self.det_thresh:
-                fail[track.track_id] = track.score
                 continue
             track.activate(self.kalman_filter, self.frame_id)
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
         print("5th isVaild amount " + str(allow_number))
-        print("success Utracker : " + str(score_list)) 
-        print("fail    Utracker : " + str(fail))
+        print("success Utracker : " + str(score_list))
         print()
 
 
         """ don't care """
         for track in self.lost_stracks:
-            if self.frame_id - track.end_frame > self.max_time_lost:
+            if self.frame_id - track.end_frame > 20:
                 track.mark_removed()
                 removed_stracks.append(track)
 
@@ -461,3 +460,4 @@ def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
     for i, m in zip(stracks, matrix):
         print(i.track_id, m)
     print()
+
