@@ -110,7 +110,7 @@ class opts(object):
     self.parser.add_argument('--val_hie', default=False, help='val hie')
     self.parser.add_argument('--test_hie', default=False, help='test hie')
     self.parser.add_argument('--conf_thres', type=float, default=0.3, help='confidence thresh for tracking')
-    self.parser.add_argument('--det_thres', type=float, default=0.2, help='confidence thresh for detection')
+    self.parser.add_argument('--det_thres', type=float, default=0.1, help='confidence thresh for detection')
     self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
     self.parser.add_argument('--track_buffer', type=int, default=1000, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
