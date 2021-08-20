@@ -88,7 +88,7 @@ class opts(object):
                                   'test on test set')
 
     # test
-    self.parser.add_argument('--K', type=int, default=500,
+    self.parser.add_argument('--K', type=int, default=128,
                              help='max number of output objects.') 
     self.parser.add_argument('--not_prefetch_test', action='store_true',
                              help='not use parallal data pre-processing.')
@@ -143,7 +143,7 @@ class opts(object):
                              help='reid loss: ce | triplet')
     self.parser.add_argument('--id_weight', type=float, default=1,
                              help='loss weight for id')
-    self.parser.add_argument('--reid_dim', type=int, default=512,
+    self.parser.add_argument('--reid_dim', type=int, default=128,
                              help='feature dim for reid')
     self.parser.add_argument('--ltrb', default=True,
                              help='regress left, top, right, bottom of bbox')
