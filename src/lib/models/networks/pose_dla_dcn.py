@@ -289,6 +289,7 @@ class DLA(nn.Module):
         for i in range(6):
             x = getattr(self, 'level{}'.format(i))(x)
             y.append(x)
+        convCheck(y, "base")
         return y
 
     def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'):
@@ -384,6 +385,7 @@ class IDAUp(nn.Module):
             layers[i] = upsample(project(layers[i]))
             node = getattr(self, 'node_' + str(i - startp))
             layers[i] = node(layers[i] + layers[i - 1])
+            convCheck(layers, "idaup")
 
 
 
@@ -410,6 +412,7 @@ class DLAUp(nn.Module):
             ida = getattr(self, 'ida_{}'.format(i))
             ida(layers, len(layers) -i - 2, len(layers))
             out.insert(0, layers[-1])
+        convCheck(out, "dlaup")
         return out
 
 
@@ -470,12 +473,11 @@ class DLASeg(nn.Module):
     def forward(self, x):
         x = self.base(x)
         x = self.dla_up(x)
-
         y = []
         for i in range(self.last_level - self.first_level):
             y.append(x[i].clone())
         self.ida_up(y, 0, len(y))
-
+        convCheck(y, "test")
         z = {}
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
@@ -491,3 +493,25 @@ def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4):
                  head_conv=head_conv)
   return model
 
+def check(x, line=True):
+    for i in x:
+        for j in i:
+            for k in j:
+                print(len(x), len(i), len(j), len(k))
+                break
+            break
+        break
+    if line:
+        print('^^'*60)
+
+def convCheck(x, tip="none"):
+    print(tip + "model start")
+    for i in x:
+        for j in i:
+            for k in j:
+                for l in k:
+                    print(len(x), len(i), len(j), len(k), len(l))
+                    break
+                break
+    print(tip + "model end")
+    print()

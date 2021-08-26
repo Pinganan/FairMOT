@@ -357,10 +357,9 @@ class JDETracker(object):
                 lost_stracks.append(track)
 
 
-        ''' step4 lost embedding for appearance, fuse_motion for location in future '''
+        ''' step4 lost embedding for appearance '''
         strack_pool = self.lost_stracks
         dists = matching.embedding_distance(strack_pool, inf_detections)
-        #dists = matching.fuse_motion_lostStateExcept(self.kalman_filter, dists, strack_pool, inf_detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         just_terminal_display(dists, strack_pool, "fuse_motion")
         print("4th matrixs amount " + str(len(dists)))
