@@ -136,12 +136,9 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     frame_id = 0
 
     for i, (path, img, img0) in enumerate(dataloader):
-        if i < 20:
-            #movie specification
-            continue
 
-        if i % 4 != 0:
-            continue
+        #if i % 4 != 0:
+            #continue
         if frame_id % 20 == 0:
             logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 

@@ -505,6 +505,7 @@ def check(x, line=True):
         print('^^'*60)
 
 def convCheck(x, tip="none"):
+    return
     print(tip + "model start")
     for i in x:
         for j in i:

@@ -361,7 +361,7 @@ class JDETracker(object):
         strack_pool = self.lost_stracks
         dists = matching.embedding_distance(strack_pool, inf_detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-        just_terminal_display(dists, strack_pool, "fuse_motion")
+        just_terminal_display(dists, strack_pool, "appearance")
         print("4th matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
