@@ -399,7 +399,7 @@ class JDETracker(object):
         score_list = {}
         for inew in u_detection:
             track = inf_detections[inew]
-            if track.score < self.det_thresh or strack_len == 3:
+            if track.score < self.det_thresh:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
             allow_number = allow_number + 1
@@ -429,10 +429,9 @@ class JDETracker(object):
         self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
-        print('========Frame {}======='.format(self.frame_id))
-        print('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
-        print('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('========Frame {}======='.format(self.frame_id))
+        logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
+        logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('Unconfirmed: {}'.format([track.track_id for track in unconfirmed_stracks]))
         logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
         logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))

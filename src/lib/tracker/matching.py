@@ -186,6 +186,16 @@ def embedding_distance(tracks, detections, metric='cosine'):
     return cost_matrix
 
 
+def EachDetection_embedding_distance(detections, metric='cosine'):
+
+    cost_matrix = np.zeros((len(detections), len(detections)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    det_features = np.asarray([track.curr_feat for track in detections], dtype=np.float)
+    cost_matrix = np.maximum(0.0, cdist(det_features, det_features, metric))  # Nomalized features
+    return cost_matrix
+
+
 def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
     if cost_matrix.size == 0:
         return cost_matrix

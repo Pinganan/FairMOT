@@ -13,6 +13,8 @@ import numpy as np
 import torch
 import time
 
+from tracker import matching
+
 from tracker.multitracker import JDETracker
 from tracking_utils import visualization as vis
 from tracking_utils.log import logger
@@ -135,10 +137,15 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     results = []
     frame_id = 0
 
+    # for checking model dtection ability
+    frame_mark = []
+    detectionNum = []
+    detectionSet = []
+
     for i, (path, img, img0) in enumerate(dataloader):
 
-        #if i % 4 != 0:
-            #continue
+        if i % 4 != 0:
+            continue
         if frame_id % 20 == 0:
             logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 
@@ -148,6 +155,22 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             blob = torch.from_numpy(img).cuda().unsqueeze(0)
         else:
             blob = torch.from_numpy(img).unsqueeze(0)
+
+
+
+        # record frame_id, feature, and amount of detection
+        if len(tracker.get_detection(blob, img0)) > 2:
+            if len(frame_mark) == 0:
+                frame_mark.append(frame_id)
+                detectionSet += tracker.get_detection(blob, img0)
+                detectionNum.append(len(detectionSet))
+            elif frame_id-20 > frame_mark[-1]:
+                frame_mark.append(frame_id)
+                detectionSet += tracker.get_detection(blob, img0)
+                detectionNum.append(len(detectionSet))
+
+
+
         online_targets = tracker.update(tracker.get_detection(blob, img0))
         online_tlwhs = []
         online_ids = []
@@ -178,6 +201,21 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     # save results
     write_results(result_filename, results, data_type)
     #write_results_score(result_filename, results, data_type)
+
+    
+    cost_matrix = matching.EachDetection_embedding_distance(detectionSet)
+    ccc = 0
+    for inde, (de, ro) in enumerate(zip(detectionSet, cost_matrix)):
+
+        print("{} {}  ".format(de.tlwh[:2], [int(a*100) for a in ro]))
+
+        if (inde+1) in detectionNum:
+            print("--"*60 + " " + str(frame_mark[ccc]))
+            ccc += 1
+            print()
+
+
+
     return frame_id, timer.average_time, timer.calls
 
 
