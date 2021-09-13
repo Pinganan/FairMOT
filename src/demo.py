@@ -12,9 +12,6 @@ from tracking_utils.utils import mkdir_if_missing
 from tracking_utils.log import logger
 import datasets.dataset.jde as datasets
 from track import eval_seq
-'''
-https://drive.google.com/drive/folders/1db0hpAWEhjea_6shnpbDf8WySEHMeekN
-'''
 
 
 def demo(opt):
