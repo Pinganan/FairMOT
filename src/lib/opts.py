@@ -73,9 +73,9 @@ class opts(object):
                              help='learning rate for batch size 12.')
     self.parser.add_argument('--lr_step', type=str, default='20',
                              help='drop learning rate by 10.')
-    self.parser.add_argument('--num_epochs', type=int, default=30,
+    self.parser.add_argument('--num_epochs', type=int, default=5,
                              help='total training epochs.')
-    self.parser.add_argument('--batch_size', type=int, default=12,
+    self.parser.add_argument('--batch_size', type=int, default=2,
                              help='batch size')
     self.parser.add_argument('--master_batch_size', type=int, default=-1,
                              help='batch size on the master gpu.')
@@ -110,7 +110,7 @@ class opts(object):
     self.parser.add_argument('--val_hie', default=False, help='val hie')
     self.parser.add_argument('--test_hie', default=False, help='test hie')
     self.parser.add_argument('--conf_thres', type=float, default=0.3, help='confidence thresh for tracking')
-    self.parser.add_argument('--det_thres', type=float, default=0.3, help='confidence thresh for detection')
+    self.parser.add_argument('--det_thres', type=float, default=0.8, help='confidence thresh for detection')
     self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
     self.parser.add_argument('--track_buffer', type=int, default=1000, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
@@ -147,6 +147,7 @@ class opts(object):
                              help='feature dim for reid')
     self.parser.add_argument('--ltrb', default=True,
                              help='regress left, top, right, bottom of bbox')
+    self.parser.add_argument('--multi_loss', default='uncertainty', help='multi_task loss: uncertainty | fix')
 
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
