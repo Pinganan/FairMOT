@@ -167,6 +167,16 @@ def iou_distance(atracks, btracks):
     return cost_matrix
 
 
+def update_appearence(all_features, metric='cosine'):
+
+    feature = np.asarray([feat for feat in all_features], dtype=np.float)
+    cost_matrix = np.maximum(0.0, cdist(feature, feature, metric))
+
+    cost = [sum(i) for i in cost_matrix]
+
+    return all_features[np.argmin(cost)]
+
+
 def embedding_distance(tracks, detections, metric='cosine'):
     """
     :param tracks: list[STrack]

@@ -43,12 +43,12 @@ class STrack(BaseTrack):
 
     def update_features(self, feat):
         feat /= np.linalg.norm(feat)
-        self.features.append(feat)
         self.curr_feat = feat
         if self.smooth_feat is None:
             self.smooth_feat = feat
         else:
-            self.smooth_feat = matching.update_appearence(self.features)
+            self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
+        self.features.append(feat)
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
     def predict(self):
@@ -296,6 +296,8 @@ class JDETracker(object):
 
         ''' step2-2 fuse_motion for location in future '''
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
+        #dists = matching.fuse_motion_lostStateExcept(self.kalman_filter, dists, strack_pool, detections)
+        #matches, u_track, u_detection = matching.find_min_assignment(dists, thresh=0.4)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
         just_terminal_display(dists, strack_pool, "fuse_motion")
@@ -325,7 +327,8 @@ class JDETracker(object):
         ''' step3 iou '''
         strack_pool = [strack_pool[i] for i in u_track]
         dists = matching.iou_distance(strack_pool, val_detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.1)
+        #matches, u_track, u_detection = matching.find_min_assignment(dists)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         just_terminal_display(dists, strack_pool, "iou_distance")
         print("3rd matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))

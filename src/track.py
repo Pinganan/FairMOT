@@ -201,7 +201,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     write_results(result_filename, results, data_type)
     #write_results_score(result_filename, results, data_type)
 
-    
+    '''
     cost_matrix = matching.EachDetection_embedding_distance(detectionSet)
     ccc = 0
     for inde, (de, ro) in enumerate(zip(detectionSet, cost_matrix)):
@@ -212,7 +212,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             print("--"*60 + " " + str(frame_mark[ccc]))
             ccc += 1
             print()
-
+    '''
 
 
     return frame_id, timer.average_time, timer.calls
