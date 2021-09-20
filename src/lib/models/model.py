@@ -37,7 +37,7 @@ def load_model(model, model_path, optimizer=None, resume=False,
   print('loaded {}, epoch {}'.format(model_path, checkpoint['epoch']))
   state_dict_ = checkpoint['state_dict']
   state_dict = {}
-  
+
   # convert data_parallal to model
   for k in state_dict_:
     if k.startswith('module') and not k.startswith('module_list'):

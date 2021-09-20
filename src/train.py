@@ -19,6 +19,8 @@ from trains.train_factory import train_factory
 
 
 def main(opt):
+
+    # for confirming the same seed in each experient
     torch.manual_seed(opt.seed)
     torch.backends.cudnn.benchmark = not opt.not_cuda_benchmark and not opt.test
 
@@ -27,6 +29,8 @@ def main(opt):
     f = open(opt.data_cfg)
     data_config = json.load(f)
     trainset_paths = data_config['train']
+    
+    # needed checking path from json since it's full path in default
     dataset_root = data_config['root']
     f.close()
     transforms = T.Compose([T.ToTensor()])

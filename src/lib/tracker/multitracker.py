@@ -183,7 +183,6 @@ class JDETracker(object):
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
-
         self.tracked_stracks = []  # type: list[STrack]
         self.lost_stracks = []  # type: list[STrack]
         self.removed_stracks = []  # type: list[STrack]
@@ -340,7 +339,7 @@ class JDETracker(object):
             track = strack_pool[itracked]
             det = val_detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(det, self.frame_id)
+                track.update(det, self.frame_id, False)
                 activated_starcks.append(track)
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
@@ -352,12 +351,11 @@ class JDETracker(object):
                 lost_stracks.append(track)
 
 
-        ''' step4 lost embedding for appearance, fuse_motion for location in future '''
+        ''' step4 lost embedding for appearance '''
         strack_pool = self.lost_stracks
         dists = matching.embedding_distance(strack_pool, inf_detections)
-        #dists = matching.fuse_motion_lostStateExcept(self.kalman_filter, dists, strack_pool, inf_detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-        just_terminal_display(dists, strack_pool, "fuse_motion")
+        just_terminal_display(dists, strack_pool, "embedding")
         print("4th matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
         print("    detects amount " + str(len(u_detection)))
@@ -379,7 +377,6 @@ class JDETracker(object):
         inf_detections = [inf_detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
         matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
-        #matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.05)
         just_terminal_display(dists, unconfirmed, "iou_distance")
         print("5th matrixs amount " + str(len(dists)))
         print("    matches amount " + str(len(matches)))
@@ -402,6 +399,8 @@ class JDETracker(object):
             if track.score < self.det_thresh:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
+            if track.track_id > 8:
+                break
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
@@ -409,12 +408,13 @@ class JDETracker(object):
         print(score_list)
         print()
 
-
         """ don't care """
+        '''
         for track in self.lost_stracks:
             if self.frame_id - track.end_frame > self.max_time_lost:
                 track.mark_removed()
                 removed_stracks.append(track)
+        '''
 
         # print('Ramained match {} s'.format(t4-t3))
         
@@ -426,7 +426,7 @@ class JDETracker(object):
         self.lost_stracks.extend(lost_stracks)
         self.lost_stracks = sub_stracks(self.lost_stracks, self.removed_stracks)
         self.removed_stracks.extend(removed_stracks)
-        self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
+        #self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
         logger.debug('========Frame {}======='.format(self.frame_id))
