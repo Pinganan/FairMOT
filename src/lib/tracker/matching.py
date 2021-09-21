@@ -236,12 +236,12 @@ def points_distance(p1, p2):
     return (((p1[0]-p2[0])**2) + ((p1[1]-p2[1])**2))**0.5
     
 
-def frame_distance(tracker, detection, fid):
+def frame_distance(tracker, detection, fid, pixel_distance=24*4):
     cost = []
     detection_xy = [ d.to_xyah()[:2] for d in detection]
     for t in tracker:
         tracker_xy = t.to_xyah()[:2]
-        cost.append([points_distance(tracker_xy, d_xy) / (fid-t.frame_id) for d_xy in detection_xy])
+        cost.append([points_distance(tracker_xy, d_xy) / (fid-t.frame_id) / pixel_distance for d_xy in detection_xy])
     multitracker.just_terminal_display(np.asarray(cost), tracker, "lost_tracker & inf_detection pixel distance")
 
 

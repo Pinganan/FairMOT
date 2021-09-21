@@ -353,7 +353,7 @@ class JDETracker(object):
         ''' step4 lost embedding for appearance '''
         strack_pool = self.lost_stracks
         
-        matching.frame_distance(strack_pool, inf_detections, self.frame_id)
+        #matching.frame_distance(strack_pool, inf_detections, self.frame_id)
 
         dists = matching.embedding_distance(strack_pool, inf_detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
@@ -403,8 +403,6 @@ class JDETracker(object):
             if track.score < self.det_thresh:
                 continue
             track.activate(self.kalman_filter, self.frame_id)
-            if track.track_id > 8:
-                break
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
@@ -430,7 +428,7 @@ class JDETracker(object):
         self.lost_stracks.extend(lost_stracks)
         self.lost_stracks = sub_stracks(self.lost_stracks, self.removed_stracks)
         self.removed_stracks.extend(removed_stracks)
-        #self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
+        self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
         logger.debug('========Frame {}======='.format(self.frame_id))
@@ -489,8 +487,6 @@ def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
 
     if matrix.size == 0:
         return
-    print(len(matrix), len(matrix[0]))
-    print("--------------------------------------------------------------")
     print(matrix_mark + " matrix :")
     for i, m in zip(stracks, matrix):
         print(i.track_id, m)
