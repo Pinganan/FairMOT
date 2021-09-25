@@ -157,7 +157,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             blob = torch.from_numpy(img).unsqueeze(0)
 
         
-
+        '''
         # record frame_id, feature, and amount of detection
         if len(tracker.get_detection(blob, img0)) > 2:
             if len(frame_mark) == 0:
@@ -168,7 +168,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                 frame_mark.append(frame_id)
                 detectionSet += tracker.get_detection(blob, img0)
                 detectionNum.append(len(detectionSet))
-
+        '''
 
         online_targets = tracker.update(tracker.get_detection(blob, img0))
         online_tlwhs = []

@@ -43,12 +43,12 @@ class STrack(BaseTrack):
 
     def update_features(self, feat):
         feat /= np.linalg.norm(feat)
+        self.features.append(feat)
         self.curr_feat = feat
         if self.smooth_feat is None:
             self.smooth_feat = feat
         else:
-            self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
-        self.features.append(feat)
+            self.smooth_feat = matching.update_appearence(self.features)
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
     def predict(self):
@@ -296,14 +296,13 @@ class JDETracker(object):
 
         ''' step2-2 fuse_motion for location in future '''
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        #dists = matching.fuse_motion_lostStateExcept(self.kalman_filter, dists, strack_pool, detections)
-        #matches, u_track, u_detection = matching.find_min_assignment(dists, thresh=0.4)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
         u_detection, inf_detection = matching.inf_filter(dists, u_detection)   # for inf value
-        just_terminal_display(dists, strack_pool, "fuse_motion")
-        print("2nd matrixs amount " + str(len(dists)))
+        just_terminal_display(dists, strack_pool, "s_tracker & all_detection fuse_motion")
+        print("2nd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
-        print("    detects amount " + str(len(u_detection)))
+        print("    tracker amount " + str(len(u_track)))
+        print("    nor_det amount " + str(len(u_detection)))
         print("    inf_det amount " + str(len(inf_detection)))
         print()
         
@@ -327,12 +326,12 @@ class JDETracker(object):
         ''' step3 iou '''
         strack_pool = [strack_pool[i] for i in u_track]
         dists = matching.iou_distance(strack_pool, val_detections)
-        #matches, u_track, u_detection = matching.find_min_assignment(dists)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-        just_terminal_display(dists, strack_pool, "iou_distance")
-        print("3rd matrixs amount " + str(len(dists)))
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.2)
+        just_terminal_display(dists, strack_pool, "tracker & nor_detection iou_distance")
+        print("3rd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
-        print("    detects amount " + str(len(u_detection)))
+        print("    tracker amount " + str(len(u_track)))
+        print("    nor_det amount " + str(len(u_detection)))
         print()
 
         for itracked, idet in matches:
@@ -352,14 +351,15 @@ class JDETracker(object):
 
 
         ''' step4 lost embedding for appearance '''
-        strack_pool = self.lost_stracks
+        strack_pool = self.lost_stracks  
+        # matching.frame_distance(strack_pool, inf_detections, self.frame_id)
         dists = matching.embedding_distance(strack_pool, inf_detections)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-        just_terminal_display(dists, strack_pool, "embedding")
-        print("4th matrixs amount " + str(len(dists)))
+        just_terminal_display(dists, strack_pool, "lost_tracker & inf_detection embedding")
+        print("4th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
-        print("    detects amount " + str(len(u_detection)))
-        print("    inf_det amount " + str(len(inf_detection)))
+        print("    l_track amount " + str(len(u_track)))
+        print("    inf_det amount " + str(len(u_detection)))
         print()
 
         for itracked, idet in matches:
@@ -377,11 +377,13 @@ class JDETracker(object):
         inf_detections = [inf_detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, inf_detections)
         matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
-        just_terminal_display(dists, unconfirmed, "iou_distance")
-        print("5th matrixs amount " + str(len(dists)))
+        just_terminal_display(dists, unconfirmed, "u_tracker & inf_detection iou_distance")
+        print("5th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
-        print("    detects amount " + str(len(u_detection)))
+        print("    u_track amount " + str(len(u_unconfirmed)))
+        print("    inf_det amount " + str(len(u_detection)))
         print()
+
         for itracked, idet in matches:
             unconfirmed[itracked].update(inf_detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
@@ -482,8 +484,9 @@ def remove_duplicate_stracks(stracksa, stracksb):
     return resa, resb
 
 def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
+
     if matrix.size == 0:
-        return 
+        return
     print(matrix_mark + " matrix :")
     for i, m in zip(stracks, matrix):
         print(i.track_id, m)

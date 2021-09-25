@@ -196,6 +196,20 @@ def embedding_distance(tracks, detections, metric='cosine'):
     return cost_matrix
 
 
+def alltracker_mid_embedding_distance(detections, trackers, metric="cosine"):
+    cost_matrix = np.zeros((len(trackers), len(detections)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    det_features = np.asarray([track.curr_feat for track in detections], dtype=np.float)
+
+    cost_matrix = np.empty([0, len(detections)])
+    for track in trackers:
+        features = np.asarray([f for f in track.features], dtype=np.float)
+        matrix = np.maximum(0.0, cdist(det_features, features, metric))
+        cost_matrix = np.append(cost_matrix, np.median(matrix, axis=1, keepdims=True).T, axis=0)
+    return cost_matrix
+
+
 def EachDetection_embedding_distance(detections, metric='cosine'):
 
     cost_matrix = np.zeros((len(detections), len(detections)), dtype=np.float)
@@ -271,4 +285,17 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
+
+def only_motion(kf, trackers, detections, only_position=False):
+    cost_matrix = np.zeros((len(trackers), len(detections)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    measurements = np.asarray([det.to_xyah() for det in detections])
+    for row, track in enumerate(trackers):
+        gating_distance = kf.gating_distance(track.mean, track.covariance, measurements, only_position, metric='maha')
+        cost_matrix[row] = gating_distance
+    return cost_matrix
+
+
+
 
