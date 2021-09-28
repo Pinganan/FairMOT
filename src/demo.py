@@ -14,6 +14,7 @@ import datasets.dataset.jde as datasets
 from track import eval_seq
 
 def demo(opt):
+
     result_root = opt.output_root if opt.output_root != '' else '.'
     mkdir_if_missing(result_root)
 
@@ -26,12 +27,12 @@ def demo(opt):
     eval_seq(opt, dataloader,  'mot', result_filename,
              save_dir=frame_dir, show_image=True, frame_rate=frame_rate,
              use_cuda=opt.gpus!=[-1])
-'''
+
     if opt.output_format == 'video':
         output_video_path = osp.join(result_root, 'MOT16-03-results.mp4')
         cmd_str = 'ffmpeg -f image2 -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}'.format(osp.join(result_root, 'frame'), output_video_path)
         os.system(cmd_str)
-'''
+
 
 if __name__ == '__main__':
 
