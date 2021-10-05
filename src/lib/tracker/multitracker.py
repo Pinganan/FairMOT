@@ -10,6 +10,7 @@ import cv2
 import torch.nn.functional as F
 import time
 
+from p_mapper.pixel_mapper import PixelMapper
 from models.model import create_model, load_model
 from models.decode import mot_decode
 from tracking_utils.utils import *
@@ -40,6 +41,7 @@ class STrack(BaseTrack):
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
+
 
     def update_features(self, feat):
         feat /= np.linalg.norm(feat)
@@ -172,7 +174,7 @@ class STrack(BaseTrack):
 
 
 class JDETracker(object):
-    def __init__(self, opt, frame_rate=30):
+    def __init__(self, opt, frame_rate=30, port=221):
         self.opt = opt
         if opt.gpus[0] >= 0:
             opt.device = torch.device('cuda')
@@ -187,6 +189,7 @@ class JDETracker(object):
         self.lost_stracks = []  # type: list[STrack]
         self.removed_stracks = []  # type: list[STrack]
 
+        self.pixelmap = PixelMapper(221)
         self.frame_id = 0
         self.det_thresh = opt.det_thres
         self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
@@ -194,7 +197,6 @@ class JDETracker(object):
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
-
         self.kalman_filter = KalmanFilter()
 
     def post_process(self, dets, meta):
@@ -263,6 +265,16 @@ class JDETracker(object):
             detections = []
         print()
         return detections
+
+
+    def tlwh_to_maplocation(self, detections):
+        for d in detections:
+            x1, y1, w, h = d.tlwh
+            center =(int(x1 + 0.5 * w), int(y1 + h))
+            dot = self.pixelmap.pixel_to_lonlat(center)
+            self.mapx = int(dot[0][0])
+            self.mapy = int(dot[0][1])
+
 
     def update(self, detections):
         self.frame_id += 1

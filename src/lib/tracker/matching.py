@@ -196,6 +196,15 @@ def embedding_distance(tracks, detections, metric='cosine'):
     return cost_matrix
 
 
+def features_embedding(f1, f2, metric='cosine'):
+
+    cost_matrix = np.zeros((len(f1), len(f2)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    cost_matrix = np.maximum(0.0, cdist(f1, f2, metric))  # Nomalized features
+    return cost_matrix
+
+
 def alltracker_mid_embedding_distance(detections, trackers, metric="cosine"):
     cost_matrix = np.zeros((len(trackers), len(detections)), dtype=np.float)
     if cost_matrix.size == 0:

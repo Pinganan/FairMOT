@@ -13,8 +13,8 @@ import numpy as np
 import torch
 import time
 
+from map import MapTable
 from tracker import matching
-
 from tracker.multitracker import JDETracker
 from tracking_utils import visualization as vis
 from tracking_utils.log import logger
@@ -68,60 +68,105 @@ def write_results_score(filename, results, data_type):
                 f.write(line)
     logger.info('save results to {}'.format(filename))
 
-
 def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
-    tracker = JDETracker(opt, frame_rate=frame_rate)
+    table = MapTable()
+    dataloader_amount = len(dataloader)
     timer = Timer()
     results = []
     frame_id = 0
-    for frame_counter in range(len(dataloader[0])):
+    tracker = []
+    port_list = [221, 225]  #pm port
+    for i in range(dataloader_amount):
+        tracker.append(JDETracker(opt, frame_rate=frame_rate, port = port_list[i]))
 
-        if frame_counter % 8 != 0:
-            for dataloader_index in range(len(dataloader)):
+    for frame_counter in range(len(dataloader[0])):
+        if frame_counter % 4 != 0:
+            for dataloader_index in range(dataloader_amount):
                 dataloader[dataloader_index].__next__()
             continue
-
         if frame_id % 20 == 0:
             logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
-
         timer.tic()
+
+        # get detections
+        images = []
         detections = []
-        for dataloader_index in range(len(dataloader)):
-            for dataloader_index in range(len(dataloader)):
-                (path, img, img0) = dataloader[dataloader_index].__next__()
+        for dataloader_index in range(dataloader_amount):
+            (path, img, img0) = dataloader[dataloader_index].__next__()
+            images.append(img0)
             if use_cuda:
                 blob = torch.from_numpy(img).cuda().unsqueeze(0)
             else:
                 blob = torch.from_numpy(img).unsqueeze(0)
-            detections = detections + tracker.get_detection(blob, img0)
+            detections.append(tracker[dataloader_index].get_detection(blob, img0))
+
         # run tracking
-        online_targets = tracker.update(detections)
+        online_targets = []
         online_tlwhs = []
         online_ids = []
-        #online_scores = []
-        for t in online_targets:
-            tlwh = t.tlwh
-            tid = t.track_id
-            vertical = tlwh[2] / tlwh[3] > 1.6
-            if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
-                online_tlwhs.append(tlwh)
-                online_ids.append(tid)
-                #online_scores.append(t.score)
+        for dataloader_index in range(dataloader_amount):
+            # detections_xy to map_xy
+            tracker[dataloader_index].tlwh_to_maplocation(detections[dataloader_index])
+            # update
+            online_targets.append(tracker[dataloader_index].update(detections[dataloader_index]))
+
+        for i in online_targets:
+            tlwhs = []
+            ids = []
+            for t in i:
+                tlwh = t.tlwh
+                tid = t.track_id
+                vertical = tlwh[2] / tlwh[3] > 1.6
+                if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
+                    tlwhs.append(tlwh)
+                    ids.append(tid)
+            online_tlwhs.append(tlwhs)
+            online_ids.append(ids)
+
+        map_tlwhs = []
+        map_ids = []
+        # match
+        two_matches, two_ids, matches_a, id_a, matches_b, id_b, u1, u2 = table.search_match(online_targets)
+
+        for (i, j), m_id in zip(two_matches, two_ids):
+            t1 = online_targets[0][i]
+            t2 = online_targets[1][j]
+        for a, a_id in zip(matches_a, id_a):
+            t1 = online_targets[0][a]
+        for b, b_id in zip(matches_b, id_b):
+            t1 = online_targets[1][b]
+
+        # single_match
+        online_targets[0] = [online_targets[0][i] for i in u1]
+        online_targets[1] = [online_targets[1][i] for i in u2]
+        two_matches, two_ids, matches_a, id_a, matches_b, id_b = table.search_single(online_targets)
+
+        for (i, j), m_id in zip(two_matches, two_ids):
+            t1 = online_targets[0][i]
+            t2 = online_targets[1][j]
+        for a, a_id in zip(matches_a, id_a):
+            t1 = online_targets[0][a]
+        for b, b_id in zip(matches_b, id_b):
+            t1 = online_targets[1][b]
+
         timer.toc()
         # save results
-        results.append((frame_id + 1, online_tlwhs, online_ids))
-        #results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-        if show_image or save_dir is not None:
-            online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-                                          fps=1. / timer.average_time)
-            #print(online_tlwhs, online_ids, frame_id)
-        if show_image:
-            cv2.imshow('online_im', online_im)
-            cv2.waitKey(1)
-        if save_dir is not None:
-            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
+        for i in range(dataloader_amount):
+            temp = []
+            for tlwh, ids in zip(online_tlwhs[i], online_ids[i]):
+                temp.append((frame_id + 1, tlwh, ids))
+            results.append(temp)
+
+        for image, wh, ind in zip(images, online_tlwhs, online_ids):
+            if show_image or save_dir is not None:
+                online_im = vis.plot_tracking(image, wh, ind, frame_id=frame_id, fps=1. / timer.average_time)
+            if show_image:
+                cv2.imshow('online_im', online_im)
+                cv2.waitKey(1)
+            if save_dir is not None:
+                cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
     # save results
     write_results(result_filename, results, data_type)
