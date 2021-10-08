@@ -43,12 +43,12 @@ def demo2(opt):
     logger.info('Starting tracking...')
     #dataloader = datasets.MergeVideo(opt.input_video, opt.input_video)
     dataloader1 = datasets.LoadVideo(opt.input_video, opt.img_size)
-    dataloader2 = datasets.LoadVideo(opt.input_video, opt.img_size)
+    dataloader2 = datasets.LoadVideo(opt.input_video2, opt.img_size)
     result_filename = os.path.join(result_root, 'results.txt')
     frame_rate = dataloader1.frame_rate
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
     eval_seq_multiLoader(opt, [dataloader1, dataloader2],  'mot', result_filename,
-             save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
+             save_dir=frame_dir, show_image=True, frame_rate=frame_rate,
              use_cuda=opt.gpus!=[-1])
     '''
     if opt.output_format == 'video':

@@ -205,6 +205,24 @@ def features_embedding(f1, f2, metric='cosine'):
     return cost_matrix
 
 
+def points_distance(p1, p2, fid, pixel_distance=29):
+
+    if (((p1[0]-p2[0])**2) + ((p1[1]-p2[1])**2))**0.5 / fid > pixel_distance:
+        return np.inf
+    return 0
+
+
+def frame_distance(cost_matrix, tracks, detections, fid):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    cost = []
+    detection_xy = [ [d.mapx, d.mapy] for d in detections]
+    for t in tracks:
+        tracker_xy = [t.mapx, t.mapy]
+        cost.append([points_distance(tracker_xy, d_xy, (fid-t.frame_id)) for d_xy in detection_xy])
+    return np.asarray(cost)
+
+
 def alltracker_mid_embedding_distance(detections, trackers, metric="cosine"):
     cost_matrix = np.zeros((len(trackers), len(detections)), dtype=np.float)
     if cost_matrix.size == 0:
@@ -253,19 +271,6 @@ def fuse_motion_lostStateExcept(kf, cost_matrix, tracks, detections, only_positi
             track.mean, track.covariance, measurements, only_position, metric='maha')
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
-
-
-def points_distance(p1, p2):
-    return (((p1[0]-p2[0])**2) + ((p1[1]-p2[1])**2))**0.5
-    
-
-def frame_distance(tracker, detection, fid, pixel_distance=24*4):
-    cost = []
-    detection_xy = [ d.to_xyah()[:2] for d in detection]
-    for t in tracker:
-        tracker_xy = t.to_xyah()[:2]
-        cost.append([points_distance(tracker_xy, d_xy) / (fid-t.frame_id) / pixel_distance for d_xy in detection_xy])
-    multitracker.just_terminal_display(np.asarray(cost), tracker, "lost_tracker & inf_detection pixel distance")
 
 
 def fuse_motion_NoInf(kf, cost_matrix, tracks, detections, only_position=False, lambda_=0.98):

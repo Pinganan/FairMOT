@@ -16,7 +16,7 @@ class opts(object):
     self.parser.add_argument('--test', action='store_true')
     #self.parser.add_argument('--load_model', default='../models/ctdet_coco_dla_2x.pth',
                              #help='path to pretrained model')
-    self.parser.add_argument('--load_model', default='',
+    self.parser.add_argument('--load_model', default='../models/model_last.pth',
                              help='path to pretrained model')
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
@@ -115,7 +115,10 @@ class opts(object):
     self.parser.add_argument('--track_buffer', type=int, default=1000, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
     self.parser.add_argument('--input-video', type=str,
-                             default='../videos/MOT16-03.mp4',
+                             default='../videos/221_Trim.mp4',
+                             help='path to the input video')
+    self.parser.add_argument('--input-video2', type=str,
+                             default='../videos/225_Trim.mp4',
                              help='path to the input video')
     self.parser.add_argument('--output-format', type=str, default='video', help='video or text')
     self.parser.add_argument('--output-root', type=str, default='../demos', help='expected output root path')

@@ -72,6 +72,7 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
     if save_dir:
         mkdir_if_missing(save_dir)
     table = MapTable()
+    image_map = cv2.imread("MAP.jpg")
     dataloader_amount = len(dataloader)
     timer = Timer()
     results = []
@@ -108,7 +109,7 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         online_ids = []
         for dataloader_index in range(dataloader_amount):
             # detections_xy to map_xy
-            tracker[dataloader_index].tlwh_to_maplocation(detections[dataloader_index])
+            tracker[dataloader_index].map_detection(detections[dataloader_index])
             # update
             online_targets.append(tracker[dataloader_index].update(detections[dataloader_index]))
 
@@ -133,10 +134,17 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         for (i, j), m_id in zip(two_matches, two_ids):
             t1 = online_targets[0][i]
             t2 = online_targets[1][j]
+            dot = ((t1.mapx+t2.mapx)/2, (t1.mapy+t2.mapy)/2)
+            map_tlwhs.append(dot)
+            map_ids.append(m_id)
         for a, a_id in zip(matches_a, id_a):
             t1 = online_targets[0][a]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(a_id)
         for b, b_id in zip(matches_b, id_b):
             t1 = online_targets[1][b]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(b_id)
 
         # single_match
         online_targets[0] = [online_targets[0][i] for i in u1]
@@ -146,10 +154,29 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         for (i, j), m_id in zip(two_matches, two_ids):
             t1 = online_targets[0][i]
             t2 = online_targets[1][j]
+            dot = ((t1.mapx+t2.mapx)/2, (t1.mapy+t2.mapy)/2)
+            map_tlwhs.append(dot)
+            map_ids.append(m_id)
         for a, a_id in zip(matches_a, id_a):
             t1 = online_targets[0][a]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(a_id)
         for b, b_id in zip(matches_b, id_b):
             t1 = online_targets[1][b]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(b_id)
+
+        # draw id table
+        if table.match or table.single_a or table.single_b:
+            print()
+            print("    ID    C1    C2")
+            print("------------------")
+        for i, ai, bi in zip(table.match, table.match_a, table.match_b):
+            print("{:6d}{:6d}{:6d}".format(i, ai, bi))
+        for i, ai in table.single_a.items():
+            print("{:6d}{:6d}".format(i, ai))
+        for i, bi in table.single_b.items():
+            print("{:6d}{:12d}".format(i, bi))
 
         timer.toc()
         # save results
@@ -159,14 +186,36 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
                 temp.append((frame_id + 1, tlwh, ids))
             results.append(temp)
 
+        if show_image or save_dir is not None:
+            online_ims = []
+            for i in range(dataloader_amount):
+                #online_im = vis.plot_tracking(images[i], online_tlwhs[i], online_ids[i], frame_id=frame_id,
+                #                                fps=1. / timer.average_time)
+                online_im = images[i]
+                online_ims.append(online_im)
+            online_map = vis.plot_pixel(image_map, map_tlwhs, map_ids)
+            image_map = online_map
+        if show_image:
+            for i in range(dataloader_amount):
+                cv2.imshow('online_im' + str(i), online_ims[i])
+            cv2.imshow('map_im', image_map)
+            if cv2.waitKey(1) == ord('q'):
+                break
+        if save_dir is not None:
+            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), image_map)
+            cv2.imwrite(os.path.join(save_dir, '{:06d}.jpg'.format(frame_id)), online_ims[0])
+            cv2.imwrite(os.path.join(save_dir, '{:07d}.jpg'.format(frame_id)), online_ims[1])
+        '''
         for image, wh, ind in zip(images, online_tlwhs, online_ids):
             if show_image or save_dir is not None:
                 online_im = vis.plot_tracking(image, wh, ind, frame_id=frame_id, fps=1. / timer.average_time)
             if show_image:
                 cv2.imshow('online_im', online_im)
-                cv2.waitKey(1)
+                if cv2.waitKey(1) == ord('q'):
+                    break
             if save_dir is not None:
                 cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
+        '''
         frame_id += 1
     # save results
     write_results(result_filename, results, data_type)
