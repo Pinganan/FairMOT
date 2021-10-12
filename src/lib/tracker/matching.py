@@ -205,21 +205,40 @@ def features_embedding(f1, f2, metric='cosine'):
     return cost_matrix
 
 
-def points_distance(p1, p2, fid, pixel_distance=29):
-
-    if (((p1[0]-p2[0])**2) + ((p1[1]-p2[1])**2))**0.5 / fid > pixel_distance:
-        return np.inf
-    return 0
+def cal_distance(p1, p2):
+    return (((p1[0]-p2[0])**2) + ((p1[1]-p2[1])**2))**0.5
 
 
-def frame_distance(cost_matrix, tracks, detections, fid):
+def distance_standard(cost, standard=24):
+    print(cost)
+    for i in range(len(cost)):
+        if cost[i] < standard:
+            cost[i] = 0
+        else:
+            cost[i] = np.inf
+    return cost
+
+
+def short_notice_lost(cost_matrix, tracks, detections, fid, normalize_standard=1):
     if cost_matrix.size == 0:
         return cost_matrix
     cost = []
     detection_xy = [ [d.mapx, d.mapy] for d in detections]
     for t in tracks:
         tracker_xy = [t.mapx, t.mapy]
-        cost.append([points_distance(tracker_xy, d_xy, (fid-t.frame_id)) for d_xy in detection_xy])
+        cost.append([cal_distance(tracker_xy, d_xy)/((fid-t.frame_id)*normalize_standard) for d_xy in detection_xy])
+    return np.asarray(cost)
+
+
+def tracker_distance(cost_matrix, tracks, detections, fid, avg_standard=24):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    cost = []
+    detection_xy = [ [d.mapx, d.mapy] for d in detections]
+    for t in tracks:
+        tracker_xy = [t.mapx, t.mapy]
+        temp = [cal_distance(tracker_xy, d_xy)/(fid-t.frame_id) for d_xy in detection_xy]
+        cost.append(distance_standard(temp, standard=avg_standard))
     return np.asarray(cost)
 
 

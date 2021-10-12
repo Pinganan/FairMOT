@@ -312,9 +312,10 @@ class JDETracker(object):
 
 
         ''' step2 motion '''
+        # motion thresh=3
         STrack.multi_predict(strack_pool)
         dists = matching.only_motion(self.kalman_filter, strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=2)     # thresh for motion
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=3)
         print("2nd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
         print("    u_track amount " + str(len(u_track)))
@@ -332,12 +333,12 @@ class JDETracker(object):
 
 
         ''' step3 tracker.features embedding '''
+        # distance thresh=24, embedding thresh=0.5
         strack_pool = [strack_pool[i] for i in u_track]
         detections = [detections[i] for i in u_detection]
         dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
-        #ppppppppppppp
-        dists += matching.frame_distance(dists, strack_pool, detections, self.frame_id)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)     # thresh for median
+        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=24)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         print("3nd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
         print("    u_track amount " + str(len(u_track)))
@@ -355,10 +356,11 @@ class JDETracker(object):
 
 
         ''' step4 iou '''
+        # iou thresh=0.5
         strack_pool = [strack_pool[i] for i in u_track]
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.3)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         print("4rd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
         print("    u_track amount " + str(len(u_track)))
@@ -379,18 +381,19 @@ class JDETracker(object):
             lost_stracks.append(track)
 
 
-        ''' step5 lost tracker embedding '''
+        ''' step5 lost tracker embedding at short notice '''
+        # normalized distance number=1, embedding thresh=1
         strack_pool = self.lost_stracks
         detections = [detections[i] for i in u_detection]
         dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
-        #ppppppppppppp
-        dists += matching.frame_distance(dists, strack_pool, detections, self.frame_id)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        # need normalized
+        dists += matching.short_notice_lost(dists, strack_pool, detections, self.frame_id, normalize_standard=24)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=1)
         print("5th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
         print("    u_track amount " + str(len(u_track)))
         print("    u_det   amount " + str(len(u_detection)))
-        just_terminal_display(dists, strack_pool, "lost tracker embedding")
+        just_terminal_display(dists, strack_pool, "short notice lost embedding")
         print()
 
         for itracked, idet in matches:
@@ -402,11 +405,49 @@ class JDETracker(object):
             match_detections.append(det)
 
 
-        ''' step6 tracker(u) -> stracker(s) '''
+        ''' step6 lost tracker embedding in long time '''
+        # distance thresh=24, embedding thresh=0.4
+        strack_pool = [l for l in self.lost_stracks if self.frame_id is not l.frame_id]
+        detections = [detections[i] for i in u_detection]
+        dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
+        # inaccuracy in detection mapping
+        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=24)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        print("6th matrixs amount " + str(dists.shape))
+        print("    matches amount " + str(len(matches)))
+        print("    u_track amount " + str(len(u_track)))
+        print("    u_det   amount " + str(len(u_detection)))
+        just_terminal_display(dists, strack_pool, "long time lost embedding")
+        print()
+
+        for itracked, idet in matches:
+            track = strack_pool[itracked]
+            det = detections[idet]
+            track.re_activate(det, self.frame_id, new_id=False)
+            refind_stracks.append(track)
+            track.detection_assign_mpaxy(det.mapx, det.mapy)
+            match_detections.append(det)
+
+
+        ''' step7 removed duplicated detection '''
+        # remove detection thresh=0.9
+        detections = [detections[i] for i in u_detection]
+        dists = matching.iou_distance(match_detections, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9)
+        print("7th matrixs amount " + str(dists.shape))
+        print("    matches amount " + str(len(matches)))
+        print("    detects amount " + str(len(u_track)))
+        print("    u_u_mat amount " + str(len(u_detection)))
+        just_terminal_display(dists, match_detections, "duplicated detection")
+        print()
+
+
+        ''' step8 tracker(u) -> stracker(s) '''
+        # special
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, detections)
         matches, u_unconfirmed, u_detection = matching.find_min_assignment(dists)
-        print("6th matrixs amount " + str(dists.shape))
+        print("8th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
         print("    u_track amount " + str(len(u_unconfirmed)))
         print("    u_det   amount " + str(len(u_detection)))
@@ -416,26 +457,14 @@ class JDETracker(object):
         for itracked, idet in matches:
             unconfirmed[itracked].update(detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
-            match_detections.append(detections[idet])
         for it in u_unconfirmed:
             track = unconfirmed[it]
             track.mark_removed()
             removed_stracks.append(track)
 
 
-        ''' step7 removed duplicated detection '''
-        detections = [detections[i] for i in u_detection]
-        dists = matching.iou_distance(match_detections, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.8)
-        print("7th matrixs amount " + str(dists.shape))
-        print("    matches amount " + str(len(matches)))
-        print("    detects amount " + str(len(u_track)))
-        print("    u_u_mat amount " + str(len(u_detection)))
-        just_terminal_display(dists, unconfirmed, "duplicated detection")
-        print()
-
-
-        ''' step8 detection -> tracker(u) '''
+        ''' step9 detection -> tracker(u) '''
+        # opt.det
         allow_number = 0
         score_list = {}
         for inew in u_detection:
@@ -446,7 +475,7 @@ class JDETracker(object):
             allow_number = allow_number + 1
             score_list[track.track_id] = track.score
             unconfirmed_stracks.append(track)
-        print("8th isVaild amount " + str(allow_number))
+        print("9th isVaild amount " + str(allow_number))
         print(score_list)
         print()
 
@@ -515,7 +544,6 @@ def remove_duplicate_stracks(stracksa, stracksb):
     return resa, resb
 
 def just_terminal_display(matrix, stracks, matrix_mark = "IOU"):
-
     if matrix.size == 0:
         return
     print(matrix_mark + " matrix :")

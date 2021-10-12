@@ -83,12 +83,19 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         tracker.append(JDETracker(opt, frame_rate=frame_rate, port = port_list[i]))
 
     for frame_counter in range(len(dataloader[0])):
+        '''
         if frame_counter % 4 != 0:
             for dataloader_index in range(dataloader_amount):
                 dataloader[dataloader_index].__next__()
             continue
-        if frame_id % 20 == 0:
-            logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
+        '''
+        if frame_counter < 36:
+            for dataloader_index in range(dataloader_amount):
+                dataloader[dataloader_index].__next__()
+            continue
+
+        #if frame_id % 20 == 0:
+            #logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         timer.tic()
 
         # get detections
@@ -186,12 +193,12 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
                 temp.append((frame_id + 1, tlwh, ids))
             results.append(temp)
 
+        online_ims = []
         if show_image or save_dir is not None:
-            online_ims = []
             for i in range(dataloader_amount):
-                #online_im = vis.plot_tracking(images[i], online_tlwhs[i], online_ids[i], frame_id=frame_id,
-                #                                fps=1. / timer.average_time)
-                online_im = images[i]
+                online_im = vis.plot_tracking(images[i], online_tlwhs[i], online_ids[i], frame_id=frame_id,
+                                                fps=1. / timer.average_time)
+                #online_im = images[i]
                 online_ims.append(online_im)
             online_map = vis.plot_pixel(image_map, map_tlwhs, map_ids)
             image_map = online_map
@@ -202,20 +209,9 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
             if cv2.waitKey(1) == ord('q'):
                 break
         if save_dir is not None:
-            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), image_map)
-            cv2.imwrite(os.path.join(save_dir, '{:06d}.jpg'.format(frame_id)), online_ims[0])
-            cv2.imwrite(os.path.join(save_dir, '{:07d}.jpg'.format(frame_id)), online_ims[1])
-        '''
-        for image, wh, ind in zip(images, online_tlwhs, online_ids):
-            if show_image or save_dir is not None:
-                online_im = vis.plot_tracking(image, wh, ind, frame_id=frame_id, fps=1. / timer.average_time)
-            if show_image:
-                cv2.imshow('online_im', online_im)
-                if cv2.waitKey(1) == ord('q'):
-                    break
-            if save_dir is not None:
-                cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
-        '''
+            cv2.imwrite(os.path.join(save_dir + "/m",  '{:d}.jpg'.format(frame_id)), image_map)
+            cv2.imwrite(os.path.join(save_dir + "/c1", '{:d}.jpg'.format(frame_id)), online_ims[0])
+            cv2.imwrite(os.path.join(save_dir + "/c2", '{:d}.jpg'.format(frame_id)), online_ims[1])
         frame_id += 1
     # save results
     write_results(result_filename, results, data_type)

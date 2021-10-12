@@ -115,10 +115,10 @@ class opts(object):
     self.parser.add_argument('--track_buffer', type=int, default=1000, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
     self.parser.add_argument('--input-video', type=str,
-                             default='../videos/221_Trim.mp4',
+                             default='../videos/1004_3.mp4',
                              help='path to the input video')
     self.parser.add_argument('--input-video2', type=str,
-                             default='../videos/225_Trim.mp4',
+                             default='../videos/1004_4.mp4',
                              help='path to the input video')
     self.parser.add_argument('--output-format', type=str, default='video', help='video or text')
     self.parser.add_argument('--output-root', type=str, default='../demos', help='expected output root path')
@@ -205,7 +205,7 @@ class opts(object):
     if opt.resume and opt.load_model == '':
       model_path = opt.save_dir[:-4] if opt.save_dir.endswith('TEST') \
                   else opt.save_dir
-      opt.load_model = os.path.join(model_path, 'model_last.pth')
+      opt.load_model = os.path.join(model_path, 'model_30.pth')
     return opt
 
   def update_dataset_info_and_set_heads(self, opt, dataset):

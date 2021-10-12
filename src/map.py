@@ -55,14 +55,19 @@ class MapTable(object):
             temp = []
             for t2 in trackers2:
                 cost = matching.features_embedding(t1.features, t2.features)
-                temp.append(mid_2d_value(cost))
+                cost = mid_2d_value(cost)
+                map_distance = matching.cal_distance([t1.mapx, t1.mapy], [t2.mapx, t2.mapy])
+                # inaccuracy in two camera
+                map_distance = matching.distance_standard([map_distance], standard=150)
+                cost += map_distance[0]
+                temp.append(cost)
             if temp:
                 matrix.append(temp)
-        if not matrix:
-            matrix = np.zeros((len(trackers1), len(trackers2)), dtype=np.float)
-        else:
+        if matrix:
             print("OVA map features embedding matrix")
             for i in matrix: print(i)
+        else:
+            matrix = np.zeros((len(trackers1), len(trackers2)), dtype=np.float)
         matches, u1, u2 = matching.linear_assignment(np.asarray(matrix), thresh=1)     # thresh for table
 
         two_matching, two_id = [], []
@@ -75,12 +80,6 @@ class MapTable(object):
                 self.add_match(x.track_id, y.track_id, self.single_a[x.track_id])
                 del self.single_a[x.track_id]
                 del self.single_b[y.track_id]
-                '''
-                if single_a[x.track_id] > single_b[y.track_id]:
-                    self.add_match(x.track_id, y.track_id, single_a[x.track_id])
-                else:
-                    self.add_match(x.track_id, y.track_id, single_b[y.track_id])
-                '''
             elif x.track_id in self.single_a:
                 self.add_match(x.track_id, y.track_id, self.single_a[x.track_id])
                 del self.single_a[x.track_id]
@@ -102,7 +101,7 @@ class MapTable(object):
         for i in u2:
             x = trackers2[i]
             if x.track_id not in self.single_b:
-                self.single_a[x.track_id] = 20000 + x.track_id
+                self.single_b[x.track_id] = 20000 + x.track_id
                 #self.single_b[x.track_id] = "c2_" + str(x.track_id)
             id_c2.append(self.single_b[x.track_id])
             temp_c2.append(i)
