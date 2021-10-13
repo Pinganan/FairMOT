@@ -21,6 +21,7 @@ from tracking_utils.log import logger
 from tracking_utils.timer import Timer
 from tracking_utils.evaluation import Evaluator
 import datasets.dataset.jde as datasets
+from datasets.dataset.ImageStream import ImageStream
 
 from tracking_utils.utils import mkdir_if_missing
 from opts import opts
@@ -89,10 +90,12 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
                 dataloader[dataloader_index].__next__()
             continue
         '''
+        '''
         if frame_counter < 36:
             for dataloader_index in range(dataloader_amount):
                 dataloader[dataloader_index].__next__()
             continue
+        '''
 
         #if frame_id % 20 == 0:
             #logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
@@ -307,7 +310,154 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
 
     return frame_id, timer.average_time, timer.calls
 
+def eval_test1013(opt, dataloadernum, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
+    if save_dir:
+        mkdir_if_missing(save_dir)
+    table = MapTable()
+    image_map = cv2.imread("MAP.jpg")
+    dataloader_amount = dataloadernum
+    timer = Timer()
+    results = []
+    frame_id = 0
+    tracker = []
+    cameras = []
+    port_list = [221, 225]  #pm port
+    for i in range(dataloader_amount):
+        tracker.append(JDETracker(opt, frame_rate=frame_rate, port = port_list[i]))
+        cameras.append(ImageStream(port_list[i]))
 
+    # flag = True
+    # while True:
+    #     for i in range(dataloader_amount):
+    #         if cameras[i].buffer.qsize() < 36:
+    #             flag = False
+    #     if flag:
+    #         break
+    time.sleep(10)
+    print("start fairmot")
+    while True:
+        timer.tic()
+
+        # get detections
+        images = []
+        detections = []
+        for dataloader_index in range(dataloader_amount):
+            (path, img, img0) = cameras[dataloader_index].getImage()
+            images.append(img0)
+            if use_cuda:
+                blob = torch.from_numpy(img).cuda().unsqueeze(0)
+            else:
+                blob = torch.from_numpy(img).unsqueeze(0)
+            detections.append(tracker[dataloader_index].get_detection(blob, img0))
+
+        # run tracking
+        online_targets = []
+        online_tlwhs = []
+        online_ids = []
+        for dataloader_index in range(dataloader_amount):
+            # detections_xy to map_xy
+            tracker[dataloader_index].map_detection(detections[dataloader_index])
+            # update
+            online_targets.append(tracker[dataloader_index].update(detections[dataloader_index]))
+
+        for i in online_targets:
+            tlwhs = []
+            ids = []
+            for t in i:
+                tlwh = t.tlwh
+                tid = t.track_id
+                vertical = tlwh[2] / tlwh[3] > 1.6
+                if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
+                    tlwhs.append(tlwh)
+                    ids.append(tid)
+            online_tlwhs.append(tlwhs)
+            online_ids.append(ids)
+
+        map_tlwhs = []
+        map_ids = []
+        # match
+        two_matches, two_ids, matches_a, id_a, matches_b, id_b, u1, u2 = table.search_match(online_targets)
+
+        for (i, j), m_id in zip(two_matches, two_ids):
+            t1 = online_targets[0][i]
+            t2 = online_targets[1][j]
+            dot = ((t1.mapx+t2.mapx)/2, (t1.mapy+t2.mapy)/2)
+            map_tlwhs.append(dot)
+            map_ids.append(m_id)
+        for a, a_id in zip(matches_a, id_a):
+            t1 = online_targets[0][a]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(a_id)
+        for b, b_id in zip(matches_b, id_b):
+            t1 = online_targets[1][b]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(b_id)
+
+        # single_match
+        online_targets[0] = [online_targets[0][i] for i in u1]
+        online_targets[1] = [online_targets[1][i] for i in u2]
+        two_matches, two_ids, matches_a, id_a, matches_b, id_b = table.search_single(online_targets)
+
+        for (i, j), m_id in zip(two_matches, two_ids):
+            t1 = online_targets[0][i]
+            t2 = online_targets[1][j]
+            dot = ((t1.mapx+t2.mapx)/2, (t1.mapy+t2.mapy)/2)
+            map_tlwhs.append(dot)
+            map_ids.append(m_id)
+        for a, a_id in zip(matches_a, id_a):
+            t1 = online_targets[0][a]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(a_id)
+        for b, b_id in zip(matches_b, id_b):
+            t1 = online_targets[1][b]
+            map_tlwhs.append((t1.mapx, t1.mapy))
+            map_ids.append(b_id)
+
+        # draw id table
+        if table.match or table.single_a or table.single_b:
+            print()
+            print("    ID    C1    C2")
+            print("------------------")
+        for i, ai, bi in zip(table.match, table.match_a, table.match_b):
+            print("{:6d}{:6d}{:6d}".format(i, ai, bi))
+        for i, ai in table.single_a.items():
+            print("{:6d}{:6d}".format(i, ai))
+        for i, bi in table.single_b.items():
+            print("{:6d}{:12d}".format(i, bi))
+
+        timer.toc()
+        # save results
+        for i in range(dataloader_amount):
+            temp = []
+            for tlwh, ids in zip(online_tlwhs[i], online_ids[i]):
+                temp.append((frame_id + 1, tlwh, ids))
+            results.append(temp)
+        
+        online_ims = []
+        if show_image or save_dir is not None:
+            for i in range(dataloader_amount):
+                online_im = vis.plot_tracking(images[i], online_tlwhs[i], online_ids[i], frame_id=frame_id,
+                                                fps=1. / timer.average_time)
+                #online_im = images[i]
+                online_ims.append(online_im)
+            online_map = vis.plot_pixel(image_map, map_tlwhs, map_ids)
+            image_map = online_map
+        if show_image:
+            for i in range(dataloader_amount):
+                cv2.imshow('online_im' + str(i), online_ims[i])
+            cv2.imshow('map_im', image_map)
+            if cv2.waitKey(1) == ord('q'):
+                break
+        if save_dir is not None:
+            cv2.imwrite(os.path.join(save_dir + "/m",  '{:d}.jpg'.format(frame_id)), image_map)
+            cv2.imwrite(os.path.join(save_dir + "/c1", '{:d}.jpg'.format(frame_id)), online_ims[0])
+            cv2.imwrite(os.path.join(save_dir + "/c2", '{:d}.jpg'.format(frame_id)), online_ims[1])
+        frame_id += 1
+    # save results
+    write_results(result_filename, results, data_type)
+    #write_results_score(result_filename, results, data_type)
+    return frame_id, timer.average_time, timer.calls
+            
 def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), exp_name='demo',
          save_images=True, save_videos=False, show_image=True):
     logger.setLevel(logging.INFO)
