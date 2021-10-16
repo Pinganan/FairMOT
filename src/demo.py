@@ -65,7 +65,7 @@ def demo3(opt):
     logger.info('Starting tracking...')
     result_filename = os.path.join(result_root, 'results.txt')
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
-    eval_test1013(opt, 2,  'mot', result_filename,
+    eval_seq_multiCamera(opt, 2,  'mot', result_filename,
              save_dir=None, show_image=True, use_cuda=opt.gpus!=[-1])
     '''
     if opt.output_format == 'video':
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     opt = opts().init()
-    demo2(opt)
+    demo3(opt)
 
 
 

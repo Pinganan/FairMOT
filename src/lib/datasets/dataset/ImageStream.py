@@ -6,33 +6,6 @@ import time
 import threading
 import queue
 
-camera_url = 'rtsp://aifoundry:Coieeb1(@140.134.208.212:554/chID=0&streamType=sub'
-camera_url = 0
-
-class Singleton(type):
-    __instances = {}
-    __lock = threading.Lock()
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls.__instances:
-            with cls.__lock:
-                if cls not in cls.__instances:
-                    cls.__instances[cls] = super(
-                        Singleton, cls).__call__(*args, **kwargs)
-        return cls.__instances[cls]
-
-
-def synchronized(wrapped):
-    __lock = threading.Lock()
-
-    @functools.wraps(wrapped)
-    def _wrap(*args, **kwargs):
-        with __lock:
-            return wrapped(*args, **kwargs)
-
-    return _wrap
-
-# metaclass=Singleton
 class Camera():
     camera = None
 
@@ -47,10 +20,13 @@ class Camera():
     # @synchronized
     def connect(self):
         global camera_url
-        print(self.port)
-        camera_url = 'rtsp://aifoundry:Coieeb1(@140.134.208.{:d}:554/chID=0&streamType=sub'.format(self.port)
+        #print(self.port)
+        camera_url = 'rtsp://aifoundry:Coieeb1(@140.134.208.{:d}:554/chID=0&streamType=main'.format(self.port)
         self.camera = cv2.VideoCapture(camera_url)
-        print('VideoCapture created')
+        if self.camera.isOpened():
+            print('VideoCapture created')
+        else:
+            print('VideoCapture created fail')
         width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps = self.camera.get(cv2.CAP_PROP_FPS)
@@ -62,7 +38,8 @@ class Camera():
         self.camera.release()
         self.connect()
 
-class Loader(threading.Thread):
+
+class camera_Loader(threading.Thread):
     def __init__(self, queue, port, img_size=(1088, 608)):
         threading.Thread.__init__(self)
         self.queue = queue
@@ -107,27 +84,20 @@ class Loader(threading.Thread):
         print("producer: " + str(self.count))
         time.sleep(1)
 
+
 class ImageStream():
     def __init__(self, port):
         self.buffer = queue.Queue()
-        Loader(self.buffer, port)
+        camera_Loader(self.buffer, port)
 
     def getImage(self):
         # get data
         data = self.buffer.get()
-        self.buffer.get()
-        self.buffer.get()
+        # delete data
+        for i in range(1):self.buffer.get()
         count, img, img0 = data
         return count, img, img0
 
-    def gettest(self):
-        # get data
-        print("----consumer: " + str(self.buffer.get()))
-        self.buffer.get()
-        self.buffer.get()
-        self.buffer.get()
-        self.buffer.get()
-        time.sleep(5)
 
 def letterbox(img, height=608, width=1088,
             color=(127.5, 127.5, 127.5)):  # resize a rectangular image to a padded rectangular
@@ -141,6 +111,7 @@ def letterbox(img, height=608, width=1088,
     img = cv2.resize(img, new_shape, interpolation=cv2.INTER_AREA)  # resized, no border
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # padded rectangular
     return img, ratio, dw, dh
+
 
 if __name__ == "__main__":
     camera1 = ImageStream(225)

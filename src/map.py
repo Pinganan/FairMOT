@@ -87,7 +87,7 @@ class MapTable(object):
                 self.add_match(x.track_id, y.track_id, self.single_b[y.track_id])
                 del self.single_b[y.track_id]
             else:
-                self.add_match(x.track_id, y.track_id)
+                self.add_match(x.track_id, y.track_id, x.track_id)
             two_matching.append((i, j))
             two_id.append(self.match[-1])
 

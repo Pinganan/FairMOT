@@ -69,6 +69,7 @@ def write_results_score(filename, results, data_type):
                 f.write(line)
     logger.info('save results to {}'.format(filename))
 
+
 def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
@@ -220,7 +221,7 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
     write_results(result_filename, results, data_type)
     #write_results_score(result_filename, results, data_type)
     return frame_id, timer.average_time, timer.calls
-            
+
 
 def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
@@ -310,7 +311,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
 
     return frame_id, timer.average_time, timer.calls
 
-def eval_test1013(opt, dataloadernum, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
+
+def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
     table = MapTable()
@@ -325,19 +327,9 @@ def eval_test1013(opt, dataloadernum, data_type, result_filename, save_dir=None,
     for i in range(dataloader_amount):
         tracker.append(JDETracker(opt, frame_rate=frame_rate, port = port_list[i]))
         cameras.append(ImageStream(port_list[i]))
-
-    # flag = True
-    # while True:
-    #     for i in range(dataloader_amount):
-    #         if cameras[i].buffer.qsize() < 36:
-    #             flag = False
-    #     if flag:
-    #         break
-    time.sleep(10)
-    print("start fairmot")
+    time.sleep(1)
     while True:
         timer.tic()
-
         # get detections
         images = []
         detections = []
@@ -457,7 +449,8 @@ def eval_test1013(opt, dataloadernum, data_type, result_filename, save_dir=None,
     write_results(result_filename, results, data_type)
     #write_results_score(result_filename, results, data_type)
     return frame_id, timer.average_time, timer.calls
-            
+
+
 def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), exp_name='demo',
          save_images=True, save_videos=False, show_image=True):
     logger.setLevel(logging.INFO)
