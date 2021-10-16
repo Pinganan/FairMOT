@@ -11,7 +11,7 @@ from opts import opts
 from tracking_utils.utils import mkdir_if_missing
 from tracking_utils.log import logger
 import datasets.dataset.jde as datasets
-from track import eval_seq, eval_seq_multiLoader, eval_test1013
+from track import eval_seq, eval_seq_multiLoader, eval_seq_multiCamera
 
 def demo(opt):
 
