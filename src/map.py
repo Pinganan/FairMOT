@@ -3,6 +3,8 @@ import numpy as np
 
 from lib.tracker import matching
 
+MAP_PIXEL_BIAS = 250
+
 class MapTable(object):
 
     def __init__(self):
@@ -58,7 +60,8 @@ class MapTable(object):
                 cost = mid_2d_value(cost)
                 map_distance = matching.cal_distance([t1.mapx, t1.mapy], [t2.mapx, t2.mapy])
                 # inaccuracy in two camera
-                map_distance = matching.distance_standard([map_distance], standard=150)
+                print(t1.track_id, t2.track_id, map_distance)
+                map_distance = matching.distance_standard([map_distance], standard=MAP_PIXEL_BIAS)
                 cost += map_distance[0]
                 temp.append(cost)
             if temp:
@@ -68,7 +71,7 @@ class MapTable(object):
             for i in matrix: print(i)
         else:
             matrix = np.zeros((len(trackers1), len(trackers2)), dtype=np.float)
-        matches, u1, u2 = matching.linear_assignment(np.asarray(matrix), thresh=1)     # thresh for table
+        matches, u1, u2 = matching.linear_assignment(np.asarray(matrix), thresh=1)
 
         two_matching, two_id = [], []
         temp_c1, id_c1 = [], []
@@ -95,14 +98,12 @@ class MapTable(object):
             x = trackers1[i]
             if x.track_id not in self.single_a:
                 self.single_a[x.track_id] = 10000 + x.track_id
-                #self.single_a[x.track_id] = "c_" + str(x.track_id)
             id_c1.append(self.single_a[x.track_id])
             temp_c1.append(i)
         for i in u2:
             x = trackers2[i]
             if x.track_id not in self.single_b:
                 self.single_b[x.track_id] = 20000 + x.track_id
-                #self.single_b[x.track_id] = "c2_" + str(x.track_id)
             id_c2.append(self.single_b[x.track_id])
             temp_c2.append(i)
 

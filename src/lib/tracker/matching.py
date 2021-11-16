@@ -43,7 +43,6 @@ def appearance_assignment(cost_matrix, length):
 
     if cost_matrix.size == 0 or not len(cost_matrix) > length:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
-    print("--"*50)
     lost_matrix = []
     for index, row in enumerate(cost_matrix):
         if index < length:
@@ -210,7 +209,6 @@ def cal_distance(p1, p2):
 
 
 def distance_standard(cost, standard=24):
-    print(cost)
     for i in range(len(cost)):
         if cost[i] < standard:
             cost[i] = 0

@@ -85,18 +85,10 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         tracker.append(JDETracker(opt, frame_rate=frame_rate, port = port_list[i]))
 
     for frame_counter in range(len(dataloader[0])):
-        '''
-        if frame_counter % 4 != 0:
+        
+        if frame_id % 2:
             for dataloader_index in range(dataloader_amount):
-                dataloader[dataloader_index].__next__()
-            continue
-        '''
-        '''
-        if frame_counter < 36:
-            for dataloader_index in range(dataloader_amount):
-                dataloader[dataloader_index].__next__()
-            continue
-        '''
+                (path, img, img0) = dataloader[dataloader_index].__next__()
 
         #if frame_id % 20 == 0:
             #logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
@@ -113,7 +105,6 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
             else:
                 blob = torch.from_numpy(img).unsqueeze(0)
             detections.append(tracker[dataloader_index].get_detection(blob, img0))
-
         # run tracking
         online_targets = []
         online_tlwhs = []
@@ -139,9 +130,9 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
 
         map_tlwhs = []
         map_ids = []
+
         # match
         two_matches, two_ids, matches_a, id_a, matches_b, id_b, u1, u2 = table.search_match(online_targets)
-
         for (i, j), m_id in zip(two_matches, two_ids):
             t1 = online_targets[0][i]
             t2 = online_targets[1][j]
@@ -161,7 +152,6 @@ def eval_seq_multiLoader(opt, dataloader, data_type, result_filename, save_dir=N
         online_targets[0] = [online_targets[0][i] for i in u1]
         online_targets[1] = [online_targets[1][i] for i in u2]
         two_matches, two_ids, matches_a, id_a, matches_b, id_b = table.search_single(online_targets)
-
         for (i, j), m_id in zip(two_matches, two_ids):
             t1 = online_targets[0][i]
             t2 = online_targets[1][j]
@@ -312,7 +302,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     return frame_id, timer.average_time, timer.calls
 
 
-def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
+def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_dir=None, show_image=True, frame_rate=15, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
     table = MapTable()
@@ -329,6 +319,9 @@ def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_di
         cameras.append(ImageStream(port_list[i]))
     time.sleep(1)
     while True:
+
+        if frame_id % 20 == 0:
+            logger.debug('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         timer.tic()
         # get detections
         images = []
@@ -418,6 +411,7 @@ def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_di
             print("{:6d}{:12d}".format(i, bi))
 
         timer.toc()
+        
         # save results
         for i in range(dataloader_amount):
             temp = []
@@ -444,6 +438,7 @@ def eval_seq_multiCamera(opt, dataloadernum, data_type, result_filename, save_di
             cv2.imwrite(os.path.join(save_dir + "/m",  '{:d}.jpg'.format(frame_id)), image_map)
             cv2.imwrite(os.path.join(save_dir + "/c1", '{:d}.jpg'.format(frame_id)), online_ims[0])
             cv2.imwrite(os.path.join(save_dir + "/c2", '{:d}.jpg'.format(frame_id)), online_ims[1])
+        
         frame_id += 1
     # save results
     write_results(result_filename, results, data_type)

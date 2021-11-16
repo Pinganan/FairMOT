@@ -23,6 +23,7 @@ from utils.post_process import ctdet_post_process
 from utils.image import get_affine_transform
 from models.utils import _tranpose_and_gather_feat
 
+STATIC_PIXEL_STANDARD = 24
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
@@ -294,7 +295,7 @@ class JDETracker(object):
         removed_stracks = []
         unconfirmed_stracks = []
         match_detections = []        
-
+        
         ''' step1 diff tracker(u/s/l) '''
         unconfirmed = []
         strack_pool = []
@@ -337,7 +338,7 @@ class JDETracker(object):
         strack_pool = [strack_pool[i] for i in u_track]
         detections = [detections[i] for i in u_detection]
         dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
-        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=24)
+        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=STATIC_PIXEL_STANDARD)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
         print("3nd matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
@@ -380,14 +381,14 @@ class JDETracker(object):
             track.mark_lost()
             lost_stracks.append(track)
 
-
+        
         ''' step5 lost tracker embedding at short notice '''
         # normalized distance number=1, embedding thresh=1
         strack_pool = self.lost_stracks
         detections = [detections[i] for i in u_detection]
         dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
         # need normalized
-        dists += matching.short_notice_lost(dists, strack_pool, detections, self.frame_id, normalize_standard=24)
+        dists += matching.short_notice_lost(dists, strack_pool, detections, self.frame_id, normalize_standard=STATIC_PIXEL_STANDARD)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=1)
         print("5th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
@@ -411,7 +412,7 @@ class JDETracker(object):
         detections = [detections[i] for i in u_detection]
         dists = matching.alltracker_mid_embedding_distance(detections, strack_pool)
         # inaccuracy in detection mapping
-        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=24)
+        dists += matching.tracker_distance(dists, strack_pool, detections, self.frame_id, avg_standard=STATIC_PIXEL_STANDARD)
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
         print("6th matrixs amount " + str(dists.shape))
         print("    matches amount " + str(len(matches)))
@@ -478,6 +479,7 @@ class JDETracker(object):
         print("9th isVaild amount " + str(allow_number))
         print(score_list)
         print()
+        
 
 
         self.tracked_stracks = [t for t in self.tracked_stracks if t.state == TrackState.Tracked]

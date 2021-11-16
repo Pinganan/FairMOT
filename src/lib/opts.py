@@ -112,13 +112,13 @@ class opts(object):
     self.parser.add_argument('--conf_thres', type=float, default=0.3, help='confidence thresh for tracking')
     self.parser.add_argument('--det_thres', type=float, default=0.8, help='confidence thresh for detection')
     self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
-    self.parser.add_argument('--track_buffer', type=int, default=1000, help='tracking buffer')
+    self.parser.add_argument('--track_buffer', type=int, default=100, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
     self.parser.add_argument('--input-video', type=str,
-                             default='../videos/221_Trim.mp4',
+                             default='../videos/221.mp4',
                              help='path to the input video')
     self.parser.add_argument('--input-video2', type=str,
-                             default='../videos/225_Trim.mp4',
+                             default='../videos/225.mp4',
                              help='path to the input video')
     self.parser.add_argument('--output-format', type=str, default='video', help='video or text')
     self.parser.add_argument('--output-root', type=str, default='../demos', help='expected output root path')

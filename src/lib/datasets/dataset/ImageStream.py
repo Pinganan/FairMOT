@@ -19,8 +19,6 @@ class Camera():
 
     # @synchronized
     def connect(self):
-        global camera_url
-        #print(self.port)
         camera_url = 'rtsp://aifoundry:Coieeb1(@140.134.208.{:d}:554/chID=0&streamType=main'.format(self.port)
         self.camera = cv2.VideoCapture(camera_url)
         if self.camera.isOpened():
@@ -30,8 +28,6 @@ class Camera():
         width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps = self.camera.get(cv2.CAP_PROP_FPS)
-        print('Resolution: ' + str(width) +' * ' + str(height))
-        print('FPS: ' + str(fps))
 
     # @synchronized
     def reconnect(self):
@@ -94,7 +90,7 @@ class ImageStream():
         # get data
         data = self.buffer.get()
         # delete data
-        for i in range(1):self.buffer.get()
+        for i in range(14):self.buffer.get()
         count, img, img0 = data
         return count, img, img0
 
