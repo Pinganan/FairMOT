@@ -5,10 +5,7 @@
    帶補充
 * #### 隊伍名稱 : `無人設備借用與場域活動管理系統`
 * #### 指導教授 : 許懷中老師
-* #### 隊友 :
-    + `平祖安`
-    + `李筱文`
-    + `許鳳麟`
+* #### 隊友 : `平祖安`、`李筱文`、`許鳳麟`
 
 # FairMOT
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-simple-baseline-for-multi-object-tracking/multi-object-tracking-on-2dmot15-1)](https://paperswithcode.com/sota/multi-object-tracking-on-2dmot15-1?p=a-simple-baseline-for-multi-object-tracking)
