@@ -19,7 +19,7 @@ class Camera():
 
     # @synchronized
     def connect(self):
-        camera_url = 'rtsp://aifoundry:Coieeb1(@140.134.208.{:d}:554/chID=0&streamType=main'.format(self.port)
+        camera_url = null
         self.camera = cv2.VideoCapture(camera_url)
         if self.camera.isOpened():
             print('VideoCapture created')
